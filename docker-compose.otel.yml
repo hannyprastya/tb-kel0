@@ -1,0 +1,22 @@
+# docker-compose.otel.yml (P11): lgtm + app dengan OpenTelemetry.
+# Dipakai berlapis dengan docker-compose.yml lewat COMPOSE_FILE (P11 A.2).
+services:
+  lgtm:
+    image: grafana/otel-lgtm:0.37.0     # Grafana 13.2.3 + Tempo, Loki, Prom.
+    ports: ["3000:3000"]                # Grafana
+    volumes:                            # alert + dasbor SLO sebagai kode
+      - ./observability/alert-rules.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/tb-kel0.yaml:ro
+      - ./observability/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/tb-kel0.yaml:ro
+      - ./observability/slo-dashboard.json:/otel-lgtm/tb-kel0/slo.json:ro
+  app:
+    build: { context: ., dockerfile: Dockerfile.otel }
+    image: tb-app:otel                  # jangan menimpa image produksi
+    environment:
+      OTEL_PHP_AUTOLOAD_ENABLED: "true"        # SDK aktif otomatis
+      OTEL_SERVICE_NAME: app-${NIM:?isi NIM dulu}  # NIM pemilik codespace
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none              # metrik dibuat Tempo dari span
+    depends_on: [lgtm]

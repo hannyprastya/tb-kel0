@@ -1,0 +1,60 @@
+# Dockerfile.otel (P11 slide 12): Dockerfile P7 + OpenTelemetry. Hanya
+# untuk lab di codespace; image produksi tetap dibuat dari Dockerfile.
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction \
+      --prefer-dist --optimize-autoloader
+
+FROM php:8.4-apache
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev \
+ && docker-php-ext-install pdo_pgsql \
+ && rm -rf /var/lib/apt/lists/*
+# BARU 1: ekstensi opentelemetry dari PECL (versi dikunci)
+RUN pecl install opentelemetry-1.4.2 && docker-php-ext-enable opentelemetry
+ENV PORT=8080
+RUN sed -i 's/^Listen 80$/Listen ${PORT}/' /etc/apache2/ports.conf \
+ && sed -i 's/<VirtualHost \*:80>/<VirtualHost *:${PORT}>/' \
+      /etc/apache2/sites-available/000-default.conf \
+ && echo 'FallbackResource /index.php' > /etc/apache2/conf-enabled/fallback.conf
+# BARU 2: otel.php dijalankan PHP sebelum index.php (auto_prepend_file)
+COPY <<'PHP' /otel/otel.php
+<?php
+// (1) SDK OpenTelemetry + span PDO otomatis; diatur variabel OTEL_*
+require "/var/www/html/vendor/autoload.php";
+
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\API\Logs\LogRecord;
+use OpenTelemetry\API\Trace\{Span, StatusCode};
+use OpenTelemetry\SDK\Trace\AutoRootSpan;
+use function OpenTelemetry\Instrumentation\hook;
+
+// (2) span induk (SERVER) per request; saat selesai diberi nama rute
+//     dan status HTTP, 5xx ditandai ERROR (untuk metrik dan alert)
+if (!empty($_SERVER["REQUEST_METHOD"])
+    && ($req = AutoRootSpan::createRequest())) {
+    AutoRootSpan::create($req);
+    AutoRootSpan::registerShutdownHandler();
+    register_shutdown_function(static function (): void {
+        $rute = parse_url($_SERVER["REQUEST_URI"] ?? "/", PHP_URL_PATH);
+        $kode = http_response_code() ?: 200;
+        $span = Span::getCurrent();
+        $span->updateName($_SERVER["REQUEST_METHOD"] . " " . $rute);
+        $span->setAttribute("http.route", $rute);
+        $span->setAttribute("http.response.status_code", $kode);
+        if ($kode >= 500) $span->setStatus(StatusCode::STATUS_ERROR);
+    });
+}
+
+// (3) setiap error_log("...") juga dikirim ke Loki, lengkap dengan trace_id
+hook(null, "error_log", pre: static function ($obj, array $args): void {
+    $log = new LogRecord((string) $args[0]);
+    $log->setSeverityText("INFO")->setSeverityNumber(9);
+    Globals::loggerProvider()->getLogger("app")->emit($log);
+});
+PHP
+RUN echo 'auto_prepend_file=/otel/otel.php' > "$PHP_INI_DIR/conf.d/otel.ini"
+COPY --from=vendor /app/vendor /var/www/html/vendor
+COPY . /var/www/html/
+EXPOSE 8080

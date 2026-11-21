@@ -1,0 +1,8 @@
+# dashboards.yaml: Grafana memuat dasbor SLO dari folder observability/
+apiVersion: 1
+providers:
+  - name: tb-kel0
+    folder: tb-kel0
+    type: file
+    options:
+      path: /otel-lgtm/tb-kel0
