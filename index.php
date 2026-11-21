@@ -39,7 +39,8 @@ if ($path === "/healthz") {            // dangkal: proses hidup
         json(["status" => "error", "db" => "gagal"], 503);
     }
 } elseif ($path === "/tamu" && $method === "POST") {
-    $nama = trim($_POST["nama"] ?? "");
+    $nama = $_POST["nama"] ?? "";
+    $nama = is_string($nama) ? trim($nama) : "";   // F-04: array ditolak
     if ($nama === "") { http_response_code(400); echo "nama wajib diisi"; exit; }
     $st = db()->prepare("INSERT INTO tamu (nama) VALUES (?)");   // ? = parameter
     $st->execute([mb_substr($nama, 0, 80)]);

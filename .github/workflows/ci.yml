@@ -1,0 +1,51 @@
+# .github/workflows/ci.yml (P10 slide 7-9): build -> test -> push -> deploy
+# Tanpa secret apa pun run tetap hijau: Push memakai GITHUB_TOKEN bawaan,
+# Deploy hanya jalan bila variabel repo RENDER_ENABLED = true (README).
+name: ci-cd
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }   # PR: build + test saja
+concurrency:                           # PR baru membatalkan run PR lama
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  build-test-deploy:                   # nama check di ruleset (P10 A.3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # ---- P10: build dan uji image yang sama dengan yang akan di-push
+      - name: Nama image
+        run: |
+          REPO="${GITHUB_REPOSITORY,,}"
+          echo "IMAGE=ghcr.io/$REPO:${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Build
+        run: docker build -t "$IMAGE" .
+      # P12: langkah Scan (Trivy, composer audit) disisipkan di sini
+      - name: Test (uji fungsional F-01..F-12 terhadap compose)
+        run: |
+          docker compose up -d --wait
+          curl -fsS --retry 3 --retry-connrefused localhost:8080/health
+          bash tests/fungsional.sh
+      - name: Log aplikasi bila Test gagal
+        if: failure()
+        run: docker compose logs --tail 50
+
+      # ---- push hanya dari main; GITHUB_TOKEN berlaku selama job saja
+      - name: Push ke GHCR
+        if: github.event_name == 'push'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AKTOR: ${{ github.actor }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$AKTOR" --password-stdin
+          docker push "$IMAGE"
+      - name: Deploy ke Render (bila RENDER_ENABLED = true)
+        if: github.event_name == 'push' && vars.RENDER_ENABLED == 'true'
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: >-
+          curl -fsS -X POST -G "$HOOK"
+          --data-urlencode "imgURL=$IMAGE"

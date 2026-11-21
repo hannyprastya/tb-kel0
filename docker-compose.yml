@@ -1,10 +1,15 @@
-# docker-compose.yml (P7 slide 25; dipakai lagi di P8)
+# docker-compose.yml (P7 slide 25; P10 image + healthcheck app)
 services:
   app:
     build: .
+    image: ${IMAGE:-tb-app:dev}   # P10: di CI = image yang diuji lalu di-push
     ports: ["8080:8080"]
     environment:
       DATABASE_URL: postgresql://app:latihan@db:5432/app
+    healthcheck:                     # --wait menunggu Apache benar-benar siap
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "localhost:8080/healthz"]
+      interval: 3s
+      retries: 10
     depends_on:
       db: { condition: service_healthy }   # app menunggu db sehat
   db:
