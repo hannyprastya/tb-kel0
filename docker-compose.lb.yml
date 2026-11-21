@@ -1,0 +1,27 @@
+# docker-compose.lb.yml (P13 C.2-C.3): compose P7 + Nginx sebagai load
+# balancer dan cache (slide 9-11). Pakai: docker compose -f
+# docker-compose.lb.yml up -d --build --scale app=2
+services:
+  app:
+    build: .                     # TANPA ports: hanya Nginx yang dibuka
+    environment:
+      DATABASE_URL: postgresql://app:latihan@db:5432/app
+      WORKERS: ${WORKERS:-4}
+    depends_on:
+      db: { condition: service_healthy }
+  db:                            # sama dengan docker-compose.yml
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: latihan     # hanya untuk latihan lokal (ADR 0004)
+    volumes: ["dbdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app"]
+      interval: 3s
+      retries: 10
+  nginx:
+    image: nginx:1.30-alpine
+    ports: ["8080:80"]
+    volumes: ["./nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
+    depends_on: [app]
+volumes: { dbdata: {} }

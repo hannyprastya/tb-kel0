@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml (P10 slide 7-9 + P12 slide 18-19):
-# build -> test -> scan -> push -> deploy
+# scan kode & konfigurasi -> build -> test -> scan image -> push -> deploy
 # Tanpa secret apa pun run tetap hijau: Push memakai GITHUB_TOKEN bawaan,
 # Deploy hanya jalan bila variabel repo RENDER_ENABLED = true (README).
 name: ci-cd
@@ -17,11 +17,34 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      # ---- P12 slide 19: dependensi dicek setelah checkout, sebelum build
+      # ---- P12: gagal cepat, sebelum build (slide 19)
       - name: Scan dependensi (composer audit)
         run: >-
           docker run --rm -v "$PWD:/app" -w /app composer:2.10.3
           composer audit --locked
+      - name: Scan kode (PHPStan level 5)
+        # vendor/ dipasang dulu agar kelas AWS SDK dikenal; vendor/ tidak
+        # ikut ke image (.dockerignore) dan tidak di-commit (.gitignore)
+        run: |
+          docker run --rm -v "$PWD:/app" -w /app composer:2.10.3 \
+            composer install --no-dev --no-interaction --prefer-dist -q
+          docker run --rm -v "$PWD:/app" -w /app \
+            ghcr.io/phpstan/phpstan:2.3.1-php8.4 \
+            analyse --level 5 --no-progress \
+            --autoload-file vendor/autoload.php index.php
+      - name: Scan kode (Semgrep p/default)
+        run: >-
+          docker run --rm -v "$PWD:/src" semgrep/semgrep:1.182.1
+          semgrep scan --config p/default --error --metrics=off --quiet
+      - name: Scan konfigurasi (trivy config) dan secret (trivy fs)
+        # trivy fs otomatis memakai trivy-secret.yaml (aturan password P12
+        # D.3 + allow-rules untuk password latihan yang sudah diputuskan).
+        run: |
+          T="docker run --rm -v $PWD:/src -w /src aquasec/trivy:0.76.0"
+          $T config --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-dirs vendor .
+          $T fs --scanners secret --skip-dirs vendor --exit-code 1 .
+
       # ---- P10: build dan uji image yang sama dengan yang akan di-push
       - name: Nama image
         run: |

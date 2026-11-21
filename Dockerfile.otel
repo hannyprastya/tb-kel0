@@ -1,12 +1,13 @@
-# Dockerfile.otel (P11 slide 12): Dockerfile P7 + OpenTelemetry. Hanya
-# untuk lab di codespace; image produksi tetap dibuat dari Dockerfile.
-FROM composer:2 AS vendor
+# Dockerfile.otel (P11 slide 12): Dockerfile + OpenTelemetry. Hanya untuk
+# lab (compose berlapis docker-compose.otel.yml); image produksi tetap dari
+# Dockerfile. Perubahan P12-P13 di Dockerfile ikut disalin ke sini.
+FROM composer:2.10.3@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction \
       --prefer-dist --optimize-autoloader
 
-FROM php:8.4-apache
+FROM php:8.4-apache@sha256:3550aedd1c7bdfe26283c7b1550ef76509e6c2b1284aef814e6f2e325b7c9688
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev \
  && docker-php-ext-install pdo_pgsql \
@@ -18,6 +19,9 @@ RUN sed -i 's/^Listen 80$/Listen ${PORT}/' /etc/apache2/ports.conf \
  && sed -i 's/<VirtualHost \*:80>/<VirtualHost *:${PORT}>/' \
       /etc/apache2/sites-available/000-default.conf \
  && echo 'FallbackResource /index.php' > /etc/apache2/conf-enabled/fallback.conf
+RUN printf '%s\n' 'ServerTokens Prod' 'ServerSignature Off' \
+      > /etc/apache2/conf-enabled/sembunyi-versi.conf \
+ && echo 'expose_php = Off' > "$PHP_INI_DIR/conf.d/sembunyi-versi.ini"
 # BARU 2: otel.php dijalankan PHP sebelum index.php (auto_prepend_file)
 COPY <<'PHP' /otel/otel.php
 <?php
@@ -58,3 +62,7 @@ RUN echo 'auto_prepend_file=/otel/otel.php' > "$PHP_INI_DIR/conf.d/otel.ini"
 COPY --from=vendor /app/vendor /var/www/html/vendor
 COPY . /var/www/html/
 EXPOSE 8080
+ENV WORKERS=4
+RUN printf '%s\n' 'KeepAlive Off' 'MaxRequestWorkers ${WORKERS}' \
+      > /etc/apache2/conf-enabled/worker.conf
+USER www-data

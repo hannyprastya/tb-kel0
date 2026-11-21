@@ -1,11 +1,14 @@
-# Semua yang ikut COPY . bisa dibuka lewat URL (P7 slide 24)
+# Semua yang ikut COPY . bisa dibuka lewat URL (P7 slide 24); .htaccess
+# (P13) menolak sisanya, tetapi yang tidak perlu tetap jangan ikut.
 .git
+.github/
 .env
 *.sql
 *.dump
 *.tfstate*
 vendor/
 docs/
-docker-compose.yml
+tests/
+docker-compose*.yml
 # manifest Kubernetes (P8) berisi password latihan
 k8s/

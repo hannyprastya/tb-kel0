@@ -1,0 +1,6 @@
+# .htaccess (P12 A.2, diterapkan P13 C.4): hanya index.php yang dilayani.
+# Berkas lain yang ikut COPY (vendor/, composer.lock, Dockerfile, ...)
+# ditolak: 403.
+<If "-f %{REQUEST_FILENAME} && %{REQUEST_URI} != '/index.php'">
+    Require all denied
+</If>

@@ -1,4 +1,4 @@
-# docker-compose.yml (P7 slide 25; P10 image + healthcheck app)
+# docker-compose.yml (P7 slide 25; P10 image, P13 WORKERS)
 services:
   app:
     build: .
@@ -6,6 +6,7 @@ services:
     ports: ["8080:8080"]
     environment:
       DATABASE_URL: postgresql://app:latihan@db:5432/app
+      WORKERS: ${WORKERS:-4}      # P13 C.1: jumlah worker Apache
     healthcheck:                     # --wait menunggu Apache benar-benar siap
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "localhost:8080/healthz"]
       interval: 3s

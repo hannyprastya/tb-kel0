@@ -20,7 +20,17 @@ RUN sed -i 's/^Listen 80$/Listen ${PORT}/' /etc/apache2/ports.conf \
  && sed -i 's/<VirtualHost \*:80>/<VirtualHost *:${PORT}>/' \
       /etc/apache2/sites-available/000-default.conf \
  && echo 'FallbackResource /index.php' > /etc/apache2/conf-enabled/fallback.conf
+# P13 C.4 (temuan T-02): header tanpa nomor versi Apache dan PHP
+RUN printf '%s\n' 'ServerTokens Prod' 'ServerSignature Off' \
+      > /etc/apache2/conf-enabled/sembunyi-versi.conf \
+ && echo 'expose_php = Off' > "$PHP_INI_DIR/conf.d/sembunyi-versi.ini"
 # ambil hasil tahap 1 saja (folder vendor/), lalu kode (paling akhir)
 COPY --from=vendor /app/vendor /var/www/html/vendor
 COPY . /var/www/html/
 EXPOSE 8080
+# P13 C.1 (slide 8): jumlah worker Apache dari hitungan; bisa diubah lewat env
+ENV WORKERS=4
+RUN printf '%s\n' 'KeepAlive Off' 'MaxRequestWorkers ${WORKERS}' \
+      > /etc/apache2/conf-enabled/worker.conf
+# P13 C.4 hardening (slide 27): Apache berjalan sebagai www-data, bukan root
+USER www-data
