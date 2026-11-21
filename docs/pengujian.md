@@ -1,8 +1,8 @@
-# Pengujian · Perpustakaan Kampus (P10 CI/CD dan pengujian)
+# Pengujian · Perpustakaan Kampus (P10 CI/CD dan pengujian, P11 SLO dan alert)
 
 > **Contoh hasil.** Angka uji di dokumen ini diukur pada 2026-11-22 di
 > laptop (macOS, Docker/OrbStack, 10 core) yang sedang dipakai banyak proses
-> lain (load average 9–40).
+> lain (load average 9–40), dengan image versi akhir (4 worker Apache).
 > Baris yang bertanda *(ilustrasi)* tidak bisa diukur di repo contoh ini
 > karena belum ada layanan Render/uptime monitor sungguhan; angkanya contoh
 > yang masuk akal, bukan hasil ukur. Angka kelompokmu akan berbeda.
@@ -62,7 +62,9 @@ fungsi `$isi()` yang sama polanya.
 Cek kewajaran 100 VU: 100 ÷ (1 + 0,026) ≈ 97,5 req/s, cocok dengan 96,5
 terukur. **Titik lutut belum terlihat sampai 100 VU** (req/s masih naik
 lurus, tanpa error), tetapi p95 naik ±6× dari 50 ke 100 VU dan `max` 397 ms:
-tanda awal antrean di 4 worker Apache.
+tanda awal antrean di 4 worker Apache (dibuktikan di P11 Bagian B).
+Kapasitas tanpa jeda (`uji-maks.js`, P13 C.2) ±430–490 req/s untuk satu
+instance.
 
 ### Tabel 4. Availability dan reliability
 | Pengukuran | Hasil | Bukti |
@@ -89,3 +91,71 @@ tanda awal antrean di 4 worker Apache.
 | Uptime `/health` per bulan | 99,77% *(ilustrasi)* | ≥ 99,5% per 30 hari |
 | p95 katalog pada 100 VU | 76,84 ms | ≤ 300 ms (cadangan ±4× untuk vCPU Render yang jauh lebih kecil) |
 | Error rate saat load test | 0% | < 0,5% respons 5xx |
+
+## Bagian P11
+
+### Tabel 1–2 (lab anggota Dimas, `app-99000003`)
+k6 `uji-otel.js` (20 VU, 1 menit, 20% ke `/lambat`); waktu sisi server
+dari kueri B.4 (`traces_spanmetrics_latency_sum/count`, jendela 1 menit).
+
+| Konfigurasi | avg k6 (ms) | p95 k6 (ms) | req/s | server `GET /` (ms) | server `GET /lambat` (ms) |
+|-------------|-------------|-------------|-------|---------------------|---------------------------|
+| bawaan (150 worker) | 78 | 322 | 18,3 | 8,7 | 312 |
+| 1 worker | 602 | 1.510 | 12,2 | 8,6 | 311 |
+| 4 worker | 98 | 345 | 18,0 | 15,0 | 318 |
+
+Satu trace `GET /lambat` di Tempo: span induk 308,20 ms; `PDO::__construct`
+4,48 ms, `PDO::exec` (CREATE TABLE) 0,17 ms, `PDO::query` `SELECT
+pg_sleep(0.3)` 301,37 ms, `PDO::query` count 0,78 ms → di database
+(4,48 + 0,17 + 301,37 + 0,78) ÷ 308,20 = **99,5%**. Log Loki
+`laporan lambat dibuat, 3 tamu` membawa `trace_id` dan membuka trace yang sama.
+
+Hitungan B.5 (1 worker): waktu layanan = 0,8 × 8,6 + 0,2 × 311 = 69 ms →
+kapasitas 1000 ÷ 69 = 14,5 req/s. Beban datang 20 ÷ (1 + 0,069) = 18,7
+req/s > 14,5 → antrean tumbuh. Cek: 20 ÷ (1 + 0,602) = 12,5 req/s, cocok
+dengan 12,2 terukur. Span server hampir sama di ketiga konfigurasi, tetapi
+p95 k6 1 worker 1,51 s: selisihnya adalah **waktu antre menunggu worker**,
+yang tidak terlihat di trace karena span baru mulai saat worker mengambil
+permintaan. Perbaikannya di P13 C.1 (4 worker).
+
+### Tabel 3. SLO kelompok
+| SLI | SLO (target + kondisi) | Alasan dari kebutuhan |
+|-----|------------------------|-----------------------|
+| p95 katalog `/buku` | ≤ 300 ms @100 VU, k6 1 menit | target P9 < 1 s; cadangan untuk instance kecil dan minggu ujian |
+| Throughput | ≥ 90 req/s @100 VU | 100 VU dengan jeda 1 s ≈ 97 req/s bila tidak antre |
+| Error rate 5xx | < 0,5% | 99,5% permintaan berhasil |
+| Availability | ≥ 99,5% per 30 hari | kebutuhan.md bagian 4 (1.000 pengguna) |
+| Gangguan → alert | ≤ 2 menit | petugas sirkulasi menyadari sebelum antrean di meja memanjang |
+
+### Tabel 4. Error budget dan burn rate
+| Perhitungan | Hasil |
+|-------------|-------|
+| Error budget 99,5% per 30 hari | (1 − 0,995) × 43.200 = **216 menit** |
+| Downtime dari uptime P10 | 1 cek gagal × 5 menit ≤ 5 menit → sisa ≥ 97,7% *(ilustrasi)* |
+| Error rate 1 jam setelah latihan D.2 (lab B + D.2 + 2 latihan ulang): 2.093 gagal dari 9.969 permintaan | 0,21 → burn rate 0,21 ÷ 0,005 = **42** |
+| Dengan burn rate itu budget 30 hari habis dalam | 30 × 24 ÷ 42 = **17,1 jam** |
+| Ambang page | 14,4 × 0,005 = **7,2%** error rate selama 1 jam |
+
+### Alert dan dasbor sebagai kode
+Aturan alert dibuat dari nol di Grafana (P11 D.1: interval 10 s, pending
+30 s, no data = Normal, Runbook URL), lalu diekspor dan disimpan di
+`observability/alert-rules.yaml`; dasbor SLO di
+`observability/slo-dashboard.json`. Keduanya dimuat otomatis oleh
+`docker-compose.otel.yml`, jadi setiap anggota mendapat alert yang sama.
+Kueri memakai `service=~"app-.+"` supaya berlaku untuk NIM siapa pun.
+Ganti `PEMILIK` di `runbook_url` dengan username GitHub pemilik repo.
+
+### Tabel 5. Bukti alert (jam WIB, dari tab History Grafana)
+| Latihan | db dihentikan | Pending | Alerting (Firing) | db dinyalakan | Normal | Gangguan → Firing |
+|---------|---------------|---------|-------------------|---------------|--------|-------------------|
+| 1 (D.2, k6 5 menit) | 05:37:48 | 05:38:10 (A=0,296) | 05:38:40 (A=0,918) | 05:39:11 | 05:40:10 | 52 s |
+
+### Tabel 7. Target vs hasil kinerja
+| SLI | Target (SLO) | Hasil | Selisih | Status | Sumber |
+|-----|--------------|-------|---------|--------|--------|
+| p95 @100 VU | ≤ 300 ms | 76,84 ms | −223 ms | Tercapai | k6 P10 |
+| p95 @20 VU, 20% `/lambat` | (informasi) | 345 ms (4 worker) | – | – | k6 + Grafana |
+| Throughput @100 VU | ≥ 90 req/s | 96,5 req/s | +6,5 | Tercapai | k6 |
+| Error rate 5xx (tanpa gangguan) | < 0,5% | 0% | – | Tercapai | Grafana kueri 3 |
+| Availability 30 hari | ≥ 99,5% | 99,77% *(ilustrasi, jendela 36 jam)* | +0,27 | Tercapai (sementara) | uptime P10 |
+| Gangguan → alert | ≤ 2 menit | 52 s | −68 s | Tercapai | alert D.2 |
