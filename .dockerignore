@@ -1,0 +1,11 @@
+# Semua yang ikut COPY . bisa dibuka lewat URL (P7 slide 24)
+.git
+.env
+*.sql
+*.dump
+*.tfstate*
+vendor/
+docs/
+docker-compose.yml
+# manifest Kubernetes (P8) berisi password latihan
+k8s/

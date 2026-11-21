@@ -1,0 +1,7 @@
+# Yang tidak boleh masuk repository (P7 slide 15)
+.env
+*.pem
+id_ed25519*
+*.dump
+*.tfstate*
+vendor/

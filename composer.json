@@ -1,0 +1,11 @@
+{
+    "name": "kel0/perpustakaan",
+    "description": "Buku tamu + perpustakaan kampus (Tugas Besar Kelompok 0)",
+    "type": "project",
+    "require": {
+        "php": ">=8.3"
+    },
+    "config": {
+        "platform": { "php": "8.4.0" }
+    }
+}

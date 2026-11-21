@@ -1,0 +1,73 @@
+# k8s/app.yaml (P8 B.4): buku tamu + perpustakaan dan PostgreSQL di kind.
+# Namespace milik pemilik manifest (Raka, 99000001); anggota lain mengganti
+# nim-99000001 dengan NIM sendiri. Password latihan hanya untuk klaster lab.
+apiVersion: v1
+kind: Namespace
+metadata: { name: nim-99000001 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: db, namespace: nim-99000001 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: db } }
+  template:
+    metadata: { labels: { app: db } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          env:                           # latihan lokal; cara benar (Secret) P9+
+            - { name: POSTGRES_USER, value: app }
+            - { name: POSTGRES_PASSWORD, value: latihan }
+          ports: [{ containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: [pg_isready, -U, app] }
+            periodSeconds: 3
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: db, namespace: nim-99000001 }
+spec:
+  selector: { app: db }
+  ports: [{ port: 5432 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web, namespace: nim-99000001 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec:
+      containers:
+        - name: web
+          image: cc-nim-app:1.0
+          imagePullPolicy: IfNotPresent  # image dari kind load, bukan registry
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://app:latihan@db:5432/app"
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:                # siap menerima trafik? (cek DB)
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 5
+          livenessProbe:                 # proses hidup? gagal 3x -> restart
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:                     # jeda 5 dtk sebelum berhenti: Service
+            preStop: { sleep: { seconds: 5 } }   # sempat mencoret Pod ini
+          resources:                     # dari hasil ukur docker stats (P8 A)
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 1000m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: web, namespace: nim-99000001 }
+spec:
+  selector: { app: web }
+  ports: [{ port: 80, targetPort: 8080 }]
