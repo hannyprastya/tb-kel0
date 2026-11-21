@@ -1,12 +1,13 @@
-# Buku tamu (P7 slide 23): multi-stage. Tahap 1 hanya untuk Composer.
-FROM composer:2 AS vendor
+# Dockerfile (P7 slide 23): multi-stage. Tahap 1 hanya untuk Composer.
+# P12 B.4: base image dikunci digest (tag tinggal label untuk manusia).
+FROM composer:2.10.3@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction \
       --prefer-dist --optimize-autoloader
 
 # tahap 2: image akhir yang dijalankan (slide 19)
-FROM php:8.4-apache
+FROM php:8.4-apache@sha256:3550aedd1c7bdfe26283c7b1550ef76509e6c2b1284aef814e6f2e325b7c9688
 # konfigurasi PHP produksi: error tidak tampil ke pengguna, dicatat ke log
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # ekstensi PostgreSQL untuk PDO

@@ -1,0 +1,15 @@
+# .github/dependabot.yml (P12 slide 19): PR otomatis bila ada versi aman
+version: 2
+updates:
+  - package-ecosystem: "composer"        # composer.lock (slide 19)
+    directory: "/"
+    schedule: { interval: "weekly" }
+    cooldown: { default-days: 7 }        # versi baru ditunggu 7 hari
+  - package-ecosystem: "docker"          # digest FROM di Dockerfile (B.4)
+    directory: "/"
+    schedule: { interval: "weekly" }
+    cooldown: { default-days: 7 }
+  - package-ecosystem: "github-actions"  # SHA action di ci.yml
+    directory: "/"
+    schedule: { interval: "weekly" }
+    cooldown: { default-days: 7 }
