@@ -3,9 +3,17 @@
     "description": "Buku tamu + perpustakaan kampus (Tugas Besar Kelompok 0)",
     "type": "project",
     "require": {
-        "php": ">=8.3"
+        "php": ">=8.3",
+        "open-telemetry/sdk": "1.15.0",
+        "open-telemetry/exporter-otlp": "1.4.0",
+        "open-telemetry/opentelemetry-auto-pdo": "0.5.0",
+        "php-http/guzzle7-adapter": "1.1.0"
     },
     "config": {
-        "platform": { "php": "8.4.0" }
+        "platform": { "php": "8.4.0", "ext-opentelemetry": "1.4.2" },
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "tbachert/spi": true
+        }
     }
 }

@@ -167,6 +167,12 @@ if ($path === "/healthz") {            // dangkal: proses hidup
         http_response_code(404);
         echo "Halaman tidak ditemukan";
     }
+} elseif ($path === "/lambat") {       // P11: rute latihan, query 0,3 detik
+    $pdo = db();
+    $pdo->query("SELECT pg_sleep(0.3)");
+    $n = $pdo->query("SELECT count(*) FROM tamu")->fetchColumn();
+    error_log("laporan lambat dibuat, $n tamu");   // log ikut trace_id
+    json(["tamu" => (int) $n]);
 } else {
     http_response_code(404);
     echo "Halaman tidak ditemukan";
