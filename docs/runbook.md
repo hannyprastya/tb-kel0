@@ -1,9 +1,10 @@
 # Runbook · Perpustakaan Kampus (Kelompok 0)
-Pemilik: Dimas Ardiansyah (99000003) · Diperbarui: 2026-11-09 · Tanpa
-password, token, atau connection string: hanya nama secret.
+Pemilik: Dimas Ardiansyah (99000003) · Diperbarui: 2026-11-20 (setelah
+latihan gangguan P15) · Tanpa password, token, atau connection string:
+hanya nama secret.
 
 Isi: 1. Deploy · 2. Rollback · 3. Alert error rate 5xx > 5% · 4. Uptime
-monitor merah · 5. Eskalasi
+monitor merah · 5. Eskalasi · 6. Pesan pengingat di DLQ
 
 ## 1. Deploy (normal)
 1. Perubahan lewat branch + PR ke `main`; PR harus hijau di check
@@ -32,24 +33,29 @@ Grafana: *Alerting › Alert rules › tb-kel0 › error rate 5xx > 5%*
 (aturan dari `observability/alert-rules.yaml`).
 
 ### 3.1 Gejala dan dasbor
-- Alert Pending lalu Firing; `/health` 503; halaman `/`, `/buku`, `/lambat`
-  500 kosong. `/healthz` tetap 200 (proses hidup).
-- Dari latihan D.2: db mati → Pending +22 s → Firing +52 s; setelah db
+- Alert Pending lalu Firing; `/health` 503; halaman `/` dan `/buku` 503
+  dengan pesan "Maaf, ... Coba lagi 1 menit lagi" (sejak P15; sebelumnya 500
+  kosong). `/healthz` tetap 200 (proses hidup). `/lambat` (lab) tetap 500.
+- Dari latihan: db mati → Pending ±18–22 s → Firing ±48–52 s; setelah db
   hidup, Normal ±60 s kemudian (pengujian.md Tabel 5).
-- Dasbor *tb-kel0 · SLO perpustakaan*: panel error rate naik.
+- Dasbor *tb-kel0 · SLO perpustakaan*: panel error rate naik, p95 turun
+  (jawaban 503 cepat).
 
 ### 3.2 Cek cepat (≤ 5 menit)
 ```
 curl -s -o /dev/null -w "%{http_code}\n" $URL/health
 docker compose ps -a                 # lab: -a, supaya db yang Exited ikut tampil
-docker compose logs app --tail 20    # cari "Fatal error" / SQLSTATE
+docker compose logs app --tail 20    # cari "DB gagal: SQLSTATE..." atau Fatal error
 ```
-- Produksi: Render › *Logs* (cari `SQLSTATE`); status Neon di console
+- Produksi: Render › *Logs* (cari `DB gagal`); status Neon di console
   Neon; ada deploy dalam 1 jam terakhir? (tab *Actions* dan *Events*).
+- `DB gagal ... could not translate host name` = db mati/hilang;
+  `... timeout expired` = db menggantung (batas 3 s bekerja).
 
 ### 3.3 Mitigasi (jika ... maka ...)
 - db lab berhenti → `docker compose start db`, tunggu `/health` 200
   (±2 detik setelah db hidup).
+- db lab menggantung (`Paused`) → `docker compose unpause db`.
 - Neon tidak bisa dihubungi → cek status Neon; bila kuota CU-jam habis,
   jeda uptime monitor dan beri tahu pemilik akun (Salsa).
 - Deploy < 1 jam lalu dan error mulai sesudahnya → rollback (bagian 2).
@@ -75,3 +81,16 @@ docker compose logs app --tail 20    # cari "Fatal error" / SQLSTATE
   (IC) memutuskan, Nadia menulis pemberitahuan ke pengelola perpustakaan
   paling lambat **3 × 24 jam** (PP 33/2026). Di lingkungan latihan hanya
   ada data contoh.
+
+## 6. Pesan pengingat di DLQ (lab Floci; target: alarm CloudWatch "DLQ > 0")
+```
+aws sqs receive-message --attribute-names ApproximateReceiveCount \
+  --queue-url $AWS_ENDPOINT_URL/000000000000/antrean-kel0-dlq
+aws logs tail /aws/lambda/proses-kel0 --since 30m --format short
+```
+- Isi pesan rusak (tanpa `anggota`/`id`) → bug producer: perbaiki lewat
+  PR, lalu hapus pesan itu dari DLQ.
+- Pesan normal masuk DLQ karena layanan email/WA mati → tunggu layanan
+  pulih, lalu pindahkan kembali ke antrean utama:
+  `aws sqs start-message-move-task --source-arn <ARN DLQ>`. Aman diulang:
+  worker melewati pengingat yang sudah terkirim (kunci idempotensi).

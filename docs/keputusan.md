@@ -25,7 +25,8 @@ pemilihan region (ADR 0003).
 Ukuran dari tabel kebutuhan (10.000 pengguna): aplikasi 2 vCPU total, DB 2
 vCPU, 2 zona. Harga eceran AWS region Jakarta (`ap-southeast-3`) dari
 daftar harga publik AWS (Price List API, terbit 2026-11-11, diambil
-2026-11-22), 730 jam/bulan, tanpa diskon.
+2026-11-22), 730 jam/bulan, tanpa diskon. Rincian per komponen di
+[evaluasi.md](evaluasi.md) bagian 5.
 
 | Alternatif | Layanan + padanan (2 provider) | Biaya/bulan | Lolos? |
 |------------|--------------------------------|-------------|--------|

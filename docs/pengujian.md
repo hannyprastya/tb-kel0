@@ -132,7 +132,7 @@ permintaan. Perbaikannya di P13 C.1 (4 worker).
 |-------------|-------|
 | Error budget 99,5% per 30 hari | (1 − 0,995) × 43.200 = **216 menit** |
 | Downtime dari uptime P10 | 1 cek gagal × 5 menit ≤ 5 menit → sisa ≥ 97,7% *(ilustrasi)* |
-| Error rate 1 jam setelah latihan D.2 (lab B + D.2 + 2 latihan ulang): 2.093 gagal dari 9.969 permintaan | 0,21 → burn rate 0,21 ÷ 0,005 = **42** |
+| Error rate 1 jam berisi 3 latihan (lab B + D.2 + 2 × G1): 2.093 gagal dari 9.969 permintaan | 0,21 → burn rate 0,21 ÷ 0,005 = **42** |
 | Dengan burn rate itu budget 30 hari habis dalam | 30 × 24 ÷ 42 = **17,1 jam** |
 | Ambang page | 14,4 × 0,005 = **7,2%** error rate selama 1 jam |
 
@@ -149,6 +149,8 @@ Ganti `PEMILIK` di `runbook_url` dengan username GitHub pemilik repo.
 | Latihan | db dihentikan | Pending | Alerting (Firing) | db dinyalakan | Normal | Gangguan → Firing |
 |---------|---------------|---------|-------------------|---------------|--------|-------------------|
 | 1 (D.2, k6 5 menit) | 05:37:48 | 05:38:10 (A=0,296) | 05:38:40 (A=0,918) | 05:39:11 | 05:40:10 | 52 s |
+| 2 (G1 ke-1, P15) | 05:43:02 | 05:43:20 (A=0,244) | 05:43:50 (A=0,791) | 05:44:16 | 05:45:20 | 48 s |
+| 3 (G1 ke-2, P15) | 05:47:21 | 05:47:40 (A=0,162) | 05:48:10 (A=0,716) | 05:48:50 | 05:49:50 | 49 s |
 
 ### Tabel 7. Target vs hasil kinerja
 | SLI | Target (SLO) | Hasil | Selisih | Status | Sumber |
@@ -158,4 +160,4 @@ Ganti `PEMILIK` di `runbook_url` dengan username GitHub pemilik repo.
 | Throughput @100 VU | ≥ 90 req/s | 96,5 req/s | +6,5 | Tercapai | k6 |
 | Error rate 5xx (tanpa gangguan) | < 0,5% | 0% | – | Tercapai | Grafana kueri 3 |
 | Availability 30 hari | ≥ 99,5% | 99,77% *(ilustrasi, jendela 36 jam)* | +0,27 | Tercapai (sementara) | uptime P10 |
-| Gangguan → alert | ≤ 2 menit | 52 s | −68 s | Tercapai | alert D.2 |
+| Gangguan → alert | ≤ 2 menit | 48–52 s | −68 s | Tercapai | alert D.2, G1 |

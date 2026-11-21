@@ -5,7 +5,7 @@ const PEMILIK = "Kelompok 0 - Perpustakaan Kampus";
 const VERSI = "1.0";               // dinaikkan saat rolling update (P8)
 
 // DATABASE_URL = postgresql://user:pass@host:5432/db?sslmode=require
-function db(int $timeout = 5): PDO {
+function db(int $timeout = 3): PDO {     // P15: 5 -> 3 detik (slide 14)
     $u = parse_url(getenv("DATABASE_URL"));
     parse_str($u["query"] ?? "", $q);
     $dsn = sprintf("pgsql:host=%s;port=%d;dbname=%s",
@@ -18,6 +18,15 @@ function db(int $timeout = 5): PDO {
     $pdo->exec("CREATE TABLE IF NOT EXISTS tamu (id serial PRIMARY KEY,
                 nama text NOT NULL, waktu timestamptz DEFAULT now())");
     return $pdo;
+}
+
+// P15 (slide 14): database gagal -> halaman tetap tampil, status tetap 503
+function maaf(PDOException $e): void {
+    error_log("DB gagal: " . $e->getMessage());   // tetap tercatat di log
+    http_response_code(503);           // 5xx: alert P11 tetap menyala
+    header("Retry-After: 60");         // "coba lagi" dalam 60 detik
+    echo "<h1>Buku tamu " . htmlspecialchars(PEMILIK) . "</h1>";
+    echo "<p>Maaf, buku tamu sedang gangguan. Coba lagi 1 menit lagi.</p>";
 }
 
 function json(array $data, int $code = 200): void {
@@ -42,12 +51,16 @@ if ($path === "/healthz") {            // dangkal: proses hidup
     $nama = $_POST["nama"] ?? "";
     $nama = is_string($nama) ? trim($nama) : "";   // F-04: array ditolak
     if ($nama === "") { http_response_code(400); echo "nama wajib diisi"; exit; }
-    $st = db()->prepare("INSERT INTO tamu (nama) VALUES (?)");   // ? = parameter
-    $st->execute([mb_substr($nama, 0, 80)]);
+    try {
+        $st = db()->prepare("INSERT INTO tamu (nama) VALUES (?)");   // ? = param
+        $st->execute([mb_substr($nama, 0, 80)]);
+    } catch (PDOException $e) { maaf($e); exit; }
     header("Location: /", true, 302);
 } elseif ($path === "/") {
     $sql = "SELECT nama, waktu FROM tamu ORDER BY id DESC LIMIT 20";
-    $rows = db()->query($sql)->fetchAll();
+    try {
+        $rows = db()->query($sql)->fetchAll();
+    } catch (PDOException $e) { maaf($e); exit; }
     echo "<h1>Buku tamu " . htmlspecialchars(PEMILIK) . "</h1>";
     echo "<p>versi " . VERSI . " · server " . gethostname() . "</p>";
     echo '<form method="post" action="/tamu"><input name="nama" required>';
@@ -65,7 +78,7 @@ if ($path === "/healthz") {            // dangkal: proses hidup
 // anggota meminjam serentak. Sampul dan scan buku (object storage + CDN)
 // dan pengingat jatuh tempo (antrean, P14) belum ada di sini.
 } elseif (str_starts_with($path, "/buku")) {     // Kasus 0: perpustakaan
-    $pdo = db();
+    try { $pdo = db(); } catch (PDOException $e) { maaf($e); exit; } // P15
     $pdo->exec("CREATE TABLE IF NOT EXISTS buku (id serial PRIMARY KEY,
                 judul text UNIQUE NOT NULL, penulis text NOT NULL,
                 stok int NOT NULL CHECK (stok >= 0),
@@ -176,10 +189,12 @@ if ($path === "/healthz") {            // dangkal: proses hidup
 } elseif ($path === "/pengingat/kirim" && $method === "POST") {
     // P14 F: titip pengingat jatuh tempo ke antrean, langsung jawab 202
     require __DIR__ . "/vendor/autoload.php";
-    $st = db()->query("SELECT p.id, p.anggota, b.judul, p.jatuh_tempo
-          FROM pinjam p JOIN buku b ON b.id = p.buku_id
-          WHERE p.kembali IS NULL AND p.jatuh_tempo <= current_date + 1");
-    $daftar = $st->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $st = db()->query("SELECT p.id, p.anggota, b.judul, p.jatuh_tempo
+              FROM pinjam p JOIN buku b ON b.id = p.buku_id
+              WHERE p.kembali IS NULL AND p.jatuh_tempo <= current_date + 1");
+        $daftar = $st->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) { maaf($e); exit; }
     $opsi = ["region" => getenv("AWS_DEFAULT_REGION") ?: "us-east-1"];
     if (getenv("AWS_ENDPOINT_URL")) {          // Floci; di AWS tidak diisi
         $opsi["endpoint"] = getenv("AWS_ENDPOINT_URL");
