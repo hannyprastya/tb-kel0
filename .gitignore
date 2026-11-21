@@ -1,7 +1,12 @@
 # Yang tidak boleh masuk repository (P7 slide 15)
 .env
+.env.*
 *.pem
 id_ed25519*
 *.dump
 *.tfstate*
 vendor/
+# P14 F: hasil bungkus fungsi serverless (±22 MB, dibuat ulang)
+fungsi.zip
+# hasil uji lokal
+hasil_k6/

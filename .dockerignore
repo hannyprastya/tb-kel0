@@ -12,3 +12,6 @@ tests/
 docker-compose*.yml
 # manifest Kubernetes (P8) berisi password latihan
 k8s/
+# P14: Terraform (.terraform/ bisa ratusan MB) dan fungsi serverless
+infra/
+serverless/

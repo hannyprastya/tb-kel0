@@ -13,3 +13,7 @@ updates:
     directory: "/"
     schedule: { interval: "weekly" }
     cooldown: { default-days: 7 }
+  - package-ecosystem: "terraform"       # versi provider di infra/ (P14)
+    directories: ["/infra/*"]
+    schedule: { interval: "monthly" }
+    cooldown: { default-days: 7 }

@@ -1,4 +1,4 @@
-# docker-compose.yml (P7 slide 25; P10 image, P13 WORKERS)
+# docker-compose.yml (P7 slide 25; P10 image, P13 WORKERS, P14 Floci)
 services:
   app:
     build: .
@@ -7,6 +7,13 @@ services:
     environment:
       DATABASE_URL: postgresql://app:latihan@db:5432/app
       WORKERS: ${WORKERS:-4}      # P13 C.1: jumlah worker Apache
+      # P14 F: Floci (emulator AWS); dari dalam container BUKAN localhost
+      AWS_ENDPOINT_URL: http://host.docker.internal:4566
+      AWS_ACCESS_KEY_ID: test          # kunci palsu khusus Floci
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      NAMA_ANTREAN: antrean-kel0
+    extra_hosts: ["host.docker.internal:host-gateway"]   # untuk Linux
     healthcheck:                     # --wait menunggu Apache benar-benar siap
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "localhost:8080/healthz"]
       interval: 3s

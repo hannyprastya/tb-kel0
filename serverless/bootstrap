@@ -1,0 +1,7 @@
+#!/bin/sh
+# Runtime kustom Lambda: menjalankan runtime Bref yang ikut di zip
+set -e
+while true
+do
+    /var/task/bin/php /var/task/bref/bootstrap.php 2>&1
+done

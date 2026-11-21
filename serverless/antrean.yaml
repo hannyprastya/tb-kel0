@@ -1,0 +1,6 @@
+QueueName: antrean-kel0
+Attributes:
+  VisibilityTimeout: "10"
+  RedrivePolicy: >-
+    {"deadLetterTargetArn":"arn:aws:sqs:us-east-1:000000000000:antrean-kel0-dlq",
+    "maxReceiveCount":"3"}

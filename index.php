@@ -173,6 +173,34 @@ if ($path === "/healthz") {            // dangkal: proses hidup
     $n = $pdo->query("SELECT count(*) FROM tamu")->fetchColumn();
     error_log("laporan lambat dibuat, $n tamu");   // log ikut trace_id
     json(["tamu" => (int) $n]);
+} elseif ($path === "/pengingat/kirim" && $method === "POST") {
+    // P14 F: titip pengingat jatuh tempo ke antrean, langsung jawab 202
+    require __DIR__ . "/vendor/autoload.php";
+    $st = db()->query("SELECT p.id, p.anggota, b.judul, p.jatuh_tempo
+          FROM pinjam p JOIN buku b ON b.id = p.buku_id
+          WHERE p.kembali IS NULL AND p.jatuh_tempo <= current_date + 1");
+    $daftar = $st->fetchAll(PDO::FETCH_ASSOC);
+    $opsi = ["region" => getenv("AWS_DEFAULT_REGION") ?: "us-east-1"];
+    if (getenv("AWS_ENDPOINT_URL")) {          // Floci; di AWS tidak diisi
+        $opsi["endpoint"] = getenv("AWS_ENDPOINT_URL");
+    }
+    try {
+        $sqs = new Aws\Sqs\SqsClient($opsi);
+        $antrean = getenv("NAMA_ANTREAN") ?: "antrean-kel0";
+        $url = $sqs->getQueueUrl(["QueueName" => $antrean])["QueueUrl"];
+        foreach ($daftar as $p) {
+            // kunci idempotensi = no. pinjam + jatuh tempo (bukan acak):
+            // dikirim dua kali tetap satu pengingat (P14 C.3)
+            $p["id"] = "pinjam-" . $p["id"] . "-" . $p["jatuh_tempo"];
+            $sqs->sendMessage(["QueueUrl" => $url,
+                               "MessageBody" => json_encode($p)]);
+        }
+    } catch (Aws\Exception\AwsException $e) {
+        error_log("antrean gagal: " . ($e->getAwsErrorCode() ?? "koneksi"));
+        json(["status" => "antrean tidak tersedia"], 503);
+        exit;
+    }
+    json(["status" => "diterima", "jumlah" => count($daftar)], 202);
 } else {
     http_response_code(404);
     echo "Halaman tidak ditemukan";

@@ -1,0 +1,14 @@
+# .trivyignore.yaml: temuan trivy config yang DITERIMA dengan sadar.
+# Dipakai CI (langkah "Scan konfigurasi"). Alasan lengkap: ADR 0004.
+# Setiap baris ditinjau ulang bila komponen pindah ke AWS sungguhan.
+misconfigurations:
+  - id: AWS-0132
+    paths: ["infra/storage-file/main.tf"]
+    statement: >-
+      Bucket lab di Floci tanpa data pribadi; SSE-S3 bawaan cukup. KMS
+      customer managed key berbayar, dipasang di rancangan target (ADR 0004).
+  - id: DS-0002
+    paths: ["serverless/Dockerfile"]
+    statement: >-
+      Dockerfile pembungkus fungsi.zip (docker build -o), tahap akhir FROM
+      scratch berisi satu zip; tidak pernah dijalankan sebagai container.

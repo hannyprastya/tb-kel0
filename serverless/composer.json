@@ -1,0 +1,12 @@
+{
+    "require": {
+        "bref/bref": "^3.0",
+        "aws/aws-sdk-php": "^3.300"
+    },
+    "config": { "platform": { "php": "8.4.0" } },
+    "scripts": {
+        "pre-autoload-dump":
+            "Aws\\Script\\Composer\\Composer::removeUnusedServices"
+    },
+    "extra": { "aws/aws-sdk-php": ["S3", "Sqs"] }
+}

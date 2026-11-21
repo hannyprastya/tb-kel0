@@ -1,4 +1,4 @@
-# Evaluasi keamanan · Kelompok 0 · 2026-11-10 (P12)
+# Evaluasi keamanan · Kelompok 0 · 2026-11-10 (P12), diperbarui setelah P13–P14
 Alat: Trivy 0.76.0, composer 2.10.3, PHPStan 2.3.1, Semgrep 1.182.1,
 actionlint 1.7.12 (semua lewat Docker, versi dikunci).
 
@@ -104,3 +104,13 @@ Matriks prioritas (Tabel 10): **kerjakan dulu** T-01 (terpapar di Render),
 T-02, T-05, worker; **rencanakan** LB + replika, cache, HPA; **kalau sempat**
 rightsizing, AWS-0090; **tunda** AWS-0132 (KMS berbayar), CVE tanpa
 perbaikan (menunggu Debian).
+
+## 8. Pembaruan setelah P13–P14 (dibuktikan ulang dengan alat yang sama)
+| Pemeriksaan | Sebelum | Sesudah |
+|-------------|---------|---------|
+| loop A.2 (`installed.json`, `autoload.php`, `composer.lock`, `Dockerfile`) | 200 × 4 | 403 × 4; `/.github/workflows/ci.yml` 404 |
+| `curl -sI localhost:8080/` | versi Apache + PHP | `Server: Apache` |
+| `docker compose exec app id` | `uid=0(root)` | `uid=33(www-data)` |
+| Semgrep `p/default` | 4 temuan (`k8s/app.yaml`); P14: 2 temuan kunci statis di provider Terraform | 0 temuan (243 aturan, 64 berkas) |
+| trivy config HIGH/CRITICAL (Dockerfile, k8s, infra) | DS-0002, KSV-0014 ×2, KSV-0118, AWS-0132 | 0 selain AWS-0132 yang diterima |
+| k6 `uji.js` 100 VU setelah hardening | – | p95 76,84 ms, 0 gagal (kinerja tidak turun) |

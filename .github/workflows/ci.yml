@@ -37,12 +37,13 @@ jobs:
           docker run --rm -v "$PWD:/src" semgrep/semgrep:1.182.1
           semgrep scan --config p/default --error --metrics=off --quiet
       - name: Scan konfigurasi (trivy config) dan secret (trivy fs)
+        # .trivyignore.yaml = risiko yang diterima, alasannya di ADR 0004.
         # trivy fs otomatis memakai trivy-secret.yaml (aturan password P12
         # D.3 + allow-rules untuk password latihan yang sudah diputuskan).
         run: |
           T="docker run --rm -v $PWD:/src -w /src aquasec/trivy:0.76.0"
-          $T config --severity HIGH,CRITICAL --exit-code 1 \
-            --skip-dirs vendor .
+          $T config --severity HIGH,CRITICAL --exit-code 1 --skip-dirs vendor \
+            --ignorefile .trivyignore.yaml .
           $T fs --scanners secret --skip-dirs vendor --exit-code 1 .
 
       # ---- P10: build dan uji image yang sama dengan yang akan di-push
