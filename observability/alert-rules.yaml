@@ -37,5 +37,5 @@ groups:
         execErrState: Error
         annotations:
           summary: Error rate 5xx di atas 5% selama 30 detik
-          runbook_url: https://github.com/PEMILIK/tb-kel0/blob/main/docs/runbook.md
+          runbook_url: https://github.com/hannyprastya/tb-kel0/blob/main/docs/runbook.md
         labels: { tim: kel0, sev: "2" }
