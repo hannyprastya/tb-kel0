@@ -6,7 +6,7 @@
         "php": ">=8.3",
         "open-telemetry/sdk": "1.15.0",
         "open-telemetry/exporter-otlp": "1.4.0",
-        "open-telemetry/opentelemetry-auto-pdo": "0.5.0",
+        "open-telemetry/opentelemetry-auto-pdo": "0.6.0",
         "php-http/guzzle7-adapter": "1.1.0",
         "aws/aws-sdk-php": "^3.300"
     },
