@@ -12,7 +12,7 @@ Kebutuhan: [kebutuhan.md](kebutuhan.md) · Keputusan: [keputusan.md](keputusan.m
 | CPU per request                | aplikasi 4 ms (×2 untuk vCPU cloud = 8 ms), database 5 ms | P8 Bagian A, kebutuhan.md |
 | Target p95 dan uptime          | p95 katalog ≤ 300 ms @100 VU; 5xx < 0,5%; availability ≥ 99,5% (target 99,9%) | SLO (P11, pengujian.md Tabel 7) |
 | Worker per instance            | 4 worker Apache (p95 `/lambat` 0,31 s; 1 worker 1,55 s) | P11 Bagian B, P13 C.1 |
-| Replika / HPA min–maks         | min 2, maks 6, target CPU 60% | P13 Bagian A (`k8s/hpa.yaml`) |
+| Replika / HPA min–maks         | min 2, maks 6, target CPU 60% | P13 Bagian A (`deploy/k8s/hpa.yaml`) |
 | Lokasi data dan regulasi       | Jakarta `ap-southeast-3`; UU PDP (data anggota) | keputusan.md (P9), ADR 0003 |
 
 Ukuran per task: 0,5 vCPU ÷ 0,008 dtk = ±62 req/s per task (CPU-bound);

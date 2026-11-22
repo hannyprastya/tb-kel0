@@ -6,9 +6,9 @@ Ditinjau ulang: setiap awal semester, atau saat komponen pindah ke AWS.
 Scan P12 (Trivy 0.76.0, composer 2.10.3, PHPStan 2.3.1, Semgrep 1.182.1;
 [keamanan.md](../keamanan.md)) menemukan temuan yang tidak bisa atau tidak
 layak diperbaiki sekarang:
-- **T-04** password `latihan` di `docker-compose.yml` dan `k8s/app.yaml`
+- **T-04** password `latihan` di `docker-compose.yml` dan `deploy/k8s/app.yaml`
   (aturan tambahan `trivy-secret.yaml`: 4 temuan + 1 alarm palsu di
-  komentar `index.php`).
+  komentar `app/index.php`).
 - **AWS-0132 (HIGH)** dan **AWS-0089 (LOW)** di bucket Terraform P6 (kelak
   `infra/storage-file`): tanpa customer managed key (KMS) dan tanpa access
   logging.

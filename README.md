@@ -26,8 +26,8 @@ sebelum jatuh tempo, termasuk saat ramai di minggu ujian.
 Buku tamu PHP 8.4 + PostgreSQL dari repo `cc-99000001-app` milik Raka,
 dipilih karena satu-satunya yang sudah jalan di compose **dan** di kind
 dengan readiness `/health` dan liveness `/healthz` (P8). Fitur kasus
-(katalog, pinjam, kembali, status JSON) ditambahkan di `index.php` tepat di
-atas cabang 404, sehingga nomor baris yang dirujuk modul tetap sama.
+(katalog, pinjam, kembali, status JSON) ditambahkan di `app/index.php` tepat
+di atas cabang 404, sehingga nomor baris yang dirujuk modul tetap sama.
 
 | Rute | Fungsi |
 |------|--------|
@@ -56,39 +56,52 @@ deploy Render dikonfigurasi, lihat bagian CI/CD).
 Diagram dan alasan: [docs/arsitektur.md](docs/arsitektur.md).
 
 ## Cara menjalankan
-Semua perintah dari akar repo, di Codespaces atau laptop dengan Docker.
+Semua perintah dari **akar repo**, di Codespaces atau laptop dengan Docker.
+`docker-compose.yml` sengaja tetap di akar, jadi `docker compose up` jalan
+tanpa opsi; berkas compose lain ada di `deploy/compose/` dan dipakai
+berlapis lewat `COMPOSE_FILE` (dipisah titik dua, berkas pertama tetap
+`docker-compose.yml`). Path relatif di semua berkas compose dihitung dari
+folder berkas compose **pertama**, yaitu akar repo.
 
 ```bash
-# aplikasi + database (P7)
+# aplikasi + database (P7); image dibangun dari folder app/
 docker compose up -d --build --wait
 curl -fsS localhost:8080/health          # {"status":"ok","db":"ok"}
 bash tests/fungsional.sh                 # uji F-01..F-12 (F-07 mematikan db sebentar)
+bash tests/pantau.sh                     # jam + kode /health tiap 2 s (P10 F.3)
 
 # load test k6 (P10), hanya ke compose sendiri
 docker run --rm -i --network tb-kel0_default -e URL=http://app:8080 \
   grafana/k6:1.8.2 run --vus 25 --duration 1m - < tests/k6/uji.js
 
 # OpenTelemetry + Grafana (P11): Grafana di http://localhost:3000
-export NIM=99000003 COMPOSE_FILE=docker-compose.yml:docker-compose.otel.yml
+export NIM=99000003 COMPOSE_FILE=docker-compose.yml:deploy/compose/otel.yml
 docker compose up -d --build --wait
 
-# load balancer + cache (P13 C.2-C.3)
-docker compose down
-docker compose -f docker-compose.lb.yml up -d --build --scale app=2
+# batas worker Apache (P11 B): lapisan workers di atas compose yang dipakai
+COMPOSE_FILE=$COMPOSE_FILE:deploy/compose/workers.yml WORKERS=1 \
+  docker compose up -d --wait
+
+# load balancer + cache (P13 C.2-C.3): berdiri sendiri, bukan lapisan
+docker compose down && unset COMPOSE_FILE
+docker compose --project-directory . -f deploy/compose/lb.yml \
+  up -d --build --scale app=2
 
 # Kubernetes lokal (P13): kind + HPA
-docker build -t cc-nim-app:1.1 . && kind load docker-image cc-nim-app:1.1 --name cc-lab
-kubectl apply -f k8s/
+docker build -t cc-nim-app:1.1 app && kind load docker-image cc-nim-app:1.1 --name cc-lab
+kubectl apply -f deploy/k8s/
 ```
 
-Nama jaringan compose = nama folder + `_default` (`docker network ls`).
-Komponen Terraform: [infra/README.md](infra/README.md). Antrean, DLQ, dan
-fungsi PHP di Floci: `serverless/` (langkah P14 F).
+Nama jaringan compose = nama folder + `_default` (`docker network ls`);
+`--project-directory .` membuat `lb.yml` tetap memakai nama project, volume,
+dan jaringan yang sama. Komponen Terraform: [infra/README.md](infra/README.md).
+Antrean, DLQ, dan fungsi PHP di Floci: `serverless/` (langkah P14 F).
 
 ## CI/CD (`.github/workflows/ci.yml`)
 Setiap PR dan push ke `main` menjalankan job `build-test-deploy`:
-composer audit → PHPStan level 5 → Semgrep `p/default` → `trivy config` +
-`trivy fs --scanners secret` → build image → compose + uji fungsional
+composer audit dan PHPStan level 5 (di `app/`) → Semgrep `p/default`,
+`trivy config`, dan `trivy fs --scanners secret` (seluruh repo dari akar) →
+build image dari `app/` → compose + uji fungsional
 F-01..F-12 → Trivy image (gagal bila CRITICAL yang sudah ada perbaikannya)
 → **push ke GHCR** (hanya `main`, dengan `GITHUB_TOKEN` bawaan) →
 **deploy ke Render** (hanya bila diaktifkan). Semua action dikunci SHA,
@@ -107,6 +120,9 @@ Untuk mengaktifkan deploy (pemilik repo):
 Rollback dan penanganan alert: [docs/runbook.md](docs/runbook.md).
 
 ## Dokumen
+Daftar isi, urutan baca, dan pertanyaan yang dijawab tiap dokumen:
+[docs/README.md](docs/README.md).
+
 | Dokumen | Isi | Pertemuan |
 |---------|-----|-----------|
 | [kebutuhan.md](docs/kebutuhan.md) | workload, asumsi, tabel 1.000/10.000 pengguna, target | P9 |
@@ -121,25 +137,59 @@ Rollback dan penanganan alert: [docs/runbook.md](docs/runbook.md).
 | [komponen.md](docs/komponen.md) · [jaringan.md](docs/jaringan.md) | komponen, event-driven, VPC/subnet | P14 |
 | [evaluasi.md](docs/evaluasi.md) | SPOF, ketersediaan, RPO/RTO, Well-Architected, biaya, trade-off | P15 |
 
-## Struktur repo
+## Peta folder
 ```
 tb-kel0/
-├── .github/workflows/ci.yml   .github/dependabot.yml
-├── index.php  composer.json  composer.lock  .htaccess
-├── Dockerfile  Dockerfile.otel  .dockerignore  .gitignore
-├── docker-compose.yml          # app + db (+ env Floci untuk P14)
-├── docker-compose.otel.yml     # + Grafana LGTM (P11)
-├── docker-compose.workers.yml  workers.conf   # lab worker (P11 B)
-├── docker-compose.lb.yml  nginx.conf          # LB + cache (P13)
-├── trivy-secret.yaml  .trivyignore.yaml       # aturan scan (P12)
-├── observability/              # alert + dasbor SLO Grafana sebagai kode (P11)
-├── pantau.sh                   # jam + kode /health (P10 F.3)
-├── k8s/app.yaml  k8s/hpa.yaml  # kind + HPA (P8, P13)
-├── infra/                      # Terraform per anggota (P14)
-├── serverless/                 # fungsi PHP (Bref) untuk Floci (P14 F)
-├── tests/fungsional.sh  tests/k6/{uji,uji-otel,uji-maks}.js
-└── docs/                       # kebutuhan s.d. evaluasi + adr/
+├── README.md  docker-compose.yml               # compose di akar: docker compose up tanpa opsi
+├── .gitignore  trivy-secret.yaml  .trivyignore.yaml   # di akar: berlaku untuk seluruh repo
+├── .github/        workflows/ci.yml  dependabot.yml
+├── app/            index.php  composer.json  composer.lock  .htaccess
+│                   Dockerfile  Dockerfile.otel  .dockerignore
+├── serverless/     fungsi PHP (Bref) untuk Floci
+├── deploy/
+│   ├── compose/    otel.yml  lb.yml  nginx.conf  workers.yml  apache-proses.conf
+│   └── k8s/        app.yaml  hpa.yaml
+├── infra/          Terraform per anggota
+├── observability/  alert + dasbor SLO Grafana sebagai kode
+├── tests/          fungsional.sh  pantau.sh  k6/
+└── docs/           README.md (daftar isi) + kebutuhan s.d. evaluasi + adr/
 ```
+
+| Folder | Isi |
+|--------|-----|
+| akar | `docker-compose.yml` (app + db, env Floci P14) dan aturan scan yang berlaku untuk seluruh repo (P12): Trivy otomatis membaca `trivy-secret.yaml` dari folder kerja |
+| `.github/` | pipeline CI/CD (P10, P12) dan Dependabot (P12) |
+| `app/` | kode aplikasi dan semua yang masuk image; konteks build `docker build app` (P7, P13 hardening) |
+| `serverless/` | fungsi pengingat (Bref) + berkas antrean untuk Floci, dibungkus terpisah (P14 F) |
+| `deploy/compose/` | lapisan compose lab: OpenTelemetry (P11), batas worker (P11 B), LB + cache Nginx (P13) |
+| `deploy/k8s/` | manifest kind + HPA (P8, P13) |
+| `infra/` | satu komponen Terraform per anggota (P14) |
+| `observability/` | alert dan dasbor SLO yang dimuat Grafana (P11) |
+| `tests/` | uji fungsional F-01..F-12 (P10), pemantau `/health` (P10 F.3), skrip k6 (P10, P11, P13) |
+| `docs/` | dokumen P9–P15 + ADR; mulai dari [docs/README.md](docs/README.md) |
+
+**Di repo kelompok kalian (struktur modul P7–P15) → di contoh ini.** Modul
+menaruh semua berkas di akar repo supaya langkahnya pendek; contoh ini
+merapikannya ke folder. Isinya sama, hanya letak dan perintahnya berbeda.
+
+| Di repo kelompok (modul) | Di contoh ini |
+|--------------------------|---------------|
+| `index.php` | `app/index.php` (nomor baris sama) |
+| `composer.json`, `composer.lock`, `.htaccess` | `app/composer.json`, `app/composer.lock`, `app/.htaccess` |
+| `Dockerfile`, `Dockerfile.otel`, `.dockerignore` | `app/Dockerfile`, `app/Dockerfile.otel`, `app/.dockerignore` |
+| `docker build -t NAMA .` | `docker build -t NAMA app` |
+| `docker-compose.yml` (`build: .`) | `docker-compose.yml` tetap di akar (`build: ./app`) |
+| `docker-compose.otel.yml` | `deploy/compose/otel.yml` |
+| `COMPOSE_FILE=docker-compose.yml:docker-compose.otel.yml` | `COMPOSE_FILE=docker-compose.yml:deploy/compose/otel.yml` |
+| `docker-compose.workers.yml` | `deploy/compose/workers.yml` |
+| `workers.conf` | `deploy/compose/apache-proses.conf` (di container tetap `conf-enabled/workers.conf`) |
+| `docker-compose.lb.yml`, `nginx.conf` | `deploy/compose/lb.yml`, `deploy/compose/nginx.conf` |
+| `docker compose -f docker-compose.lb.yml up …` | `docker compose --project-directory . -f deploy/compose/lb.yml up …` |
+| `k8s/app.yaml`, `k8s/hpa.yaml` | `deploy/k8s/app.yaml`, `deploy/k8s/hpa.yaml` |
+| `kubectl apply -f k8s/` | `kubectl apply -f deploy/k8s/` |
+| `pantau.sh` | `tests/pantau.sh` |
+| `tests/fungsional.sh`, `tests/k6/`, `observability/`, `infra/`, `serverless/` | sama |
+| di CI: `composer audit`, PHPStan di akar | di CI: dijalankan di `app/` (`-v "$PWD/app:/app"`) |
 
 ## Kontribusi
 | No | NIM | Nama | Kontribusi nyata (PR dan bagian) |

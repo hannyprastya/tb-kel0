@@ -1,4 +1,4 @@
-# Dockerfile (P7 slide 23): multi-stage. Tahap 1 hanya untuk Composer.
+# app/Dockerfile (P7 slide 23): multi-stage. Tahap 1 hanya untuk Composer.
 # P12 B.4: base image dikunci digest (tag tinggal label untuk manusia).
 FROM composer:2.10.3@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS vendor
 WORKDIR /app

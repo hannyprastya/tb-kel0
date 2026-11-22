@@ -3,7 +3,7 @@ Status: Diterima · Tanggal: 2026-11-17 · Penulis: Nadia Kusuma (99000004)
 
 ## Konteks
 Aplikasi berisi buku tamu, katalog, pinjam-kembali, dan pemicu pengingat
-dalam satu `index.php` (±220 baris). Beban per bagian tidak jauh berbeda:
+dalam satu `app/index.php` (±220 baris). Beban per bagian tidak jauh berbeda:
 semua ringan, CPU aplikasi ±4 ms per request (P8), dan yang paling dulu
 habis adalah database bersama. Tim 4 orang (latihan) / 1–2 orang
 (organisasi kasus). Slide P14: mulai dari monolit yang rapi, pecah hanya

@@ -71,9 +71,9 @@ instance.
 |------------|-------|-------|
 | Lama monitor dan total cek | 36 jam, 432 cek *(ilustrasi)* | screenshot UptimeRobot |
 | Cek berhasil / gagal → uptime | 431 / 1 → 99,77% *(ilustrasi; 1 gagal = Neon bangun dari tidur)* | hitungan F.2 |
-| Waktu pulih uji 1 / 2 / 3 (db dihentikan 20 s) | 21 / 22 / 21 detik | `pantau.sh`: stop 05:51:32 → 200 pertama 05:51:53, dst. |
+| Waktu pulih uji 1 / 2 / 3 (db dihentikan 20 s) | 21 / 22 / 21 detik | `tests/pantau.sh`: stop 05:51:32 → 200 pertama 05:51:53, dst. |
 | MTTR | **21,3 detik** (20 detik di antaranya db sengaja mati) | rata-rata 3 uji |
-| Deploy Render: kode selain 200 | 0 *(ilustrasi)*: Render baru mengalihkan trafik setelah `/health` versi baru lulus | screenshot `pantau.sh` |
+| Deploy Render: kode selain 200 | 0 *(ilustrasi)*: Render baru mengalihkan trafik setelah `/health` versi baru lulus | screenshot `tests/pantau.sh` |
 
 ### Tabel 5. Target vs hasil
 | Kriteria | Target | Hasil | Status | Catatan |
@@ -141,7 +141,7 @@ Aturan alert dibuat dari nol di Grafana (P11 D.1: interval 10 s, pending
 30 s, no data = Normal, Runbook URL), lalu diekspor dan disimpan di
 `observability/alert-rules.yaml`; dasbor SLO di
 `observability/slo-dashboard.json`. Keduanya dimuat otomatis oleh
-`docker-compose.otel.yml`, jadi setiap anggota mendapat alert yang sama.
+`deploy/compose/otel.yml`, jadi setiap anggota mendapat alert yang sama.
 Kueri memakai `service=~"app-.+"` supaya berlaku untuk NIM siapa pun.
 Ganti `PEMILIK` di `runbook_url` dengan username GitHub pemilik repo.
 

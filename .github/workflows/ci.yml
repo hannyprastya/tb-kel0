@@ -20,15 +20,15 @@ jobs:
       # ---- P12: gagal cepat, sebelum build (slide 19)
       - name: Scan dependensi (composer audit)
         run: >-
-          docker run --rm -v "$PWD:/app" -w /app composer:2.10.3
+          docker run --rm -v "$PWD/app:/app" -w /app composer:2.10.3
           composer audit --locked
       - name: Scan kode (PHPStan level 5)
-        # vendor/ dipasang dulu agar kelas AWS SDK dikenal; vendor/ tidak
-        # ikut ke image (.dockerignore) dan tidak di-commit (.gitignore)
+        # app/vendor/ dipasang dulu agar kelas AWS SDK dikenal; vendor/
+        # tidak ikut ke image (app/.dockerignore) dan tidak di-commit
         run: |
-          docker run --rm -v "$PWD:/app" -w /app composer:2.10.3 \
+          docker run --rm -v "$PWD/app:/app" -w /app composer:2.10.3 \
             composer install --no-dev --no-interaction --prefer-dist -q
-          docker run --rm -v "$PWD:/app" -w /app \
+          docker run --rm -v "$PWD/app:/app" -w /app \
             ghcr.io/phpstan/phpstan:2.3.1-php8.4 \
             analyse --level 5 --no-progress \
             --autoload-file vendor/autoload.php index.php
@@ -38,13 +38,15 @@ jobs:
           semgrep scan --config p/default --error --metrics=off --quiet
       - name: Scan konfigurasi (trivy config) dan secret (trivy fs)
         # .trivyignore.yaml = risiko yang diterima, alasannya di ADR 0004.
-        # trivy fs otomatis memakai trivy-secret.yaml (aturan password P12
-        # D.3 + allow-rules untuk password latihan yang sudah diputuskan).
+        # trivy fs otomatis memakai trivy-secret.yaml di folder kerja (-w
+        # /src = akar repo): aturan password P12 D.3 + allow-rules untuk
+        # password latihan yang sudah diputuskan. Seluruh repo dipindai;
+        # app/vendor (hasil langkah PHPStan) dilewati.
         run: |
           T="docker run --rm -v $PWD:/src -w /src aquasec/trivy:0.76.0"
-          $T config --severity HIGH,CRITICAL --exit-code 1 --skip-dirs vendor \
-            --ignorefile .trivyignore.yaml .
-          $T fs --scanners secret --skip-dirs vendor --exit-code 1 .
+          $T config --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-dirs app/vendor --ignorefile .trivyignore.yaml .
+          $T fs --scanners secret --skip-dirs app/vendor --exit-code 1 .
 
       # ---- P10: build dan uji image yang sama dengan yang akan di-push
       - name: Nama image
@@ -52,7 +54,7 @@ jobs:
           REPO="${GITHUB_REPOSITORY,,}"
           echo "IMAGE=ghcr.io/$REPO:${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - name: Build
-        run: docker build -t "$IMAGE" .
+        run: docker build -t "$IMAGE" app     # konteks build = app/
       - name: Test (uji fungsional F-01..F-12 terhadap compose)
         run: |
           docker compose up -d --wait

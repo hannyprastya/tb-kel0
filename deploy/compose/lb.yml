@@ -1,9 +1,13 @@
-# docker-compose.lb.yml (P13 C.2-C.3): compose P7 + Nginx sebagai load
-# balancer dan cache (slide 9-11). Pakai: docker compose -f
-# docker-compose.lb.yml up -d --build --scale app=2
+# deploy/compose/lb.yml (P13 C.2-C.3; di modul: docker-compose.lb.yml):
+# compose P7 + Nginx sebagai load balancer dan cache (slide 9-11). Berdiri
+# sendiri (bukan lapisan). Pakai dari akar repo:
+#   docker compose --project-directory . -f deploy/compose/lb.yml \
+#     up -d --build --scale app=2
+# --project-directory . : path relatif di bawah dihitung dari akar repo dan
+# nama project tetap = nama folder repo (volume dbdata dan jaringan sama).
 services:
   app:
-    build: .                     # TANPA ports: hanya Nginx yang dibuka
+    build: ./app                 # TANPA ports: hanya Nginx yang dibuka
     environment:
       DATABASE_URL: postgresql://app:latihan@db:5432/app
       WORKERS: ${WORKERS:-4}
@@ -22,6 +26,6 @@ services:
   nginx:
     image: nginx:1.30-alpine
     ports: ["8080:80"]
-    volumes: ["./nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
+    volumes: ["./deploy/compose/nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
     depends_on: [app]
 volumes: { dbdata: {} }

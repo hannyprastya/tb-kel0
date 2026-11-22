@@ -14,8 +14,8 @@ target 4 task di 2 zona, tim IT 1–2 orang.
 ## Keputusan
 Produksi target memakai **ECS Fargate dengan auto scaling bawaan** (min 2,
 maks 6 task, target CPU 60%: angka yang sama dengan HPA P13) dan **tanpa
-service mesh**. Manifest `k8s/app.yaml` + `k8s/hpa.yaml` tetap dirawat untuk
-lab dan sebagai exit plan.
+service mesh**. Manifest `deploy/k8s/app.yaml` + `deploy/k8s/hpa.yaml` tetap
+dirawat untuk lab dan sebagai exit plan.
 
 ## Alternatif yang ditolak
 - EKS + HPA (skor matriks 3,15): control plane US$73/bulan (±22% biaya

@@ -33,11 +33,11 @@ proses jauh di bawah 512 MB Render Free.
 | **4 (dipilih)** | **0,31 s** | **18,5** | 14,4 MiB | 5 |
 | 8 | 0,32 s | 18,3 | 19,2 MiB | 9 |
 
-Image sama, jumlah worker lewat env (`WORKERS`, Dockerfile baris akhir).
+Image sama, jumlah worker lewat env (`WORKERS`, `app/Dockerfile` baris akhir).
 2 worker: antrean berhenti tumbuh tetapi p95 masih di atas 0,5 s; 8 worker
 tidak lebih cepat (bottleneck pindah ke `pg_sleep` dan database).
 
-## C.2 Load balancer + 2 replika (`docker-compose.lb.yml`, `nginx.conf`)
+## C.2 Load balancer + 2 replika (`deploy/compose/lb.yml`, `deploy/compose/nginx.conf`)
 | Skenario | 1 replika | 2 replika |
 |----------|-----------|-----------|
 | `uji-maks.js` 50 VU, 3 putaran req/s | 431 · 491 · 220 → median **431** | 624 · 792 · 268 → median **624** |
@@ -113,7 +113,7 @@ PostgreSQL tetap jalan).
 | C.5 Rightsizing | US$/bulan target B | 337,77 | 299,71 | – | jadwal 2 ↔ 4 task |
 
 ## Bagian A–B · HPA dan Linkerd *(acuan modul, tidak diukur di repo contoh)*
-- HPA (`k8s/hpa.yaml`: min 2, maks 6, CPU 60%): replika 3 → 6 ±67 s
+- HPA (`deploy/k8s/hpa.yaml`: min 2, maks 6, CPU 60%): replika 3 → 6 ±67 s
   setelah beban `ab -c 10` dimulai, turun ke 2 ±5 menit 49 s setelah beban
   hilang; `ceil(3 × 112 ÷ 60) = 6`. 2 replika 110 req/s vs 6 replika 118
   req/s: database menjadi bagian serial.

@@ -1,3 +1,6 @@
+# app/.dockerignore: harus di akar konteks build (app/). Folder di bawah
+# (docs/, tests/, k8s/, infra/, ...) kini di luar app/ dan otomatis tidak
+# ikut; barisnya dibiarkan sama dengan versi modul P7-P14.
 # Semua yang ikut COPY . bisa dibuka lewat URL (P7 slide 24); .htaccess
 # (P13) menolak sisanya, tetapi yang tidak perlu tetap jangan ikut.
 .git

@@ -1,4 +1,4 @@
-# k8s/app.yaml (P8 B.4, dipakai lab P13): buku tamu + perpustakaan dan
+# deploy/k8s/app.yaml (P8 B.4, dipakai lab P13): buku tamu + perpustakaan dan
 # PostgreSQL di kind. Namespace milik pemilik manifest (Raka, 99000001);
 # anggota lain mengganti nim-99000001 dengan NIM sendiri (P13 A.1).
 # Password latihan hanya untuk klaster lab, risiko diterima di ADR 0004.

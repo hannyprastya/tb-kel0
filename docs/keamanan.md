@@ -24,8 +24,8 @@ secret baru, atau CVE CRITICAL yang sudah ada perbaikannya.
 | T-01 | `/vendor/composer/installed.json`, `/composer.lock`, `/Dockerfile` bisa diunduh; PHP di `vendor/` bisa dipanggil | loop A.2: 4 × 200 | seluruh repo + `vendor/` disalin ke folder web, `.dockerignore` hanya daftar larangan · versi paket terbaca | Sedang (K3 × D2 = 6) | **diperbaiki P13** (`.htaccess`): 4 × 403, `.github/` 404 |
 | T-02 | header `Server: Apache/2.4.x (Debian)`, `X-Powered-By: PHP/8.4.x` | A.3 `curl -sI` | bawaan Debian dan php.ini · versi server terbaca | Sedang (K3 × D1 = 3) | **diperbaiki P13**: `Server: Apache`, tanpa X-Powered-By |
 | T-03 | image: 166 CVE (HIGH 165, CRITICAL 1: libxml2 CVE-2026-6653, status *affected*); 40 HIGH di `linux-libc-dev` | B.2 Trivy | paket Debian di base image; `linux-libc-dev` = header kernel untuk kompilasi, tidak dijalankan · celah dikenal ikut ke produksi | Sedang (K2 × D3 = 6) | dipantau; `--ignore-unfixed`: 0 → gerbang CI lulus (ADR 0004) |
-| T-04 | password `latihan` di compose (2 berkas) dan `k8s/app.yaml` | D.3 aturan tambahan: 6 temuan + 1 alarm palsu (komentar `index.php` baris 7) | konfigurasi latihan P7–P8 · hanya berlaku di lab | Sedang (K3 × D1 = 3) | **diterima** (ADR 0004), allow-rule di `trivy-secret.yaml` |
-| T-05 | Apache induk berjalan sebagai `root`; manifest tanpa `securityContext` | A.3 `ps -eo user,comm`; Semgrep 4 temuan `k8s/app.yaml` | bawaan image dan P8 · bila ada celah, penyerang langsung root | Rendah (K1 × D2 = 2) | **diperbaiki P13**: `USER www-data`, `runAsNonRoot`, `readOnlyRootFilesystem`, drop ALL |
+| T-04 | password `latihan` di compose (2 berkas) dan `deploy/k8s/app.yaml` | D.3 aturan tambahan: 6 temuan + 1 alarm palsu (komentar `app/index.php` baris 7) | konfigurasi latihan P7–P8 · hanya berlaku di lab | Sedang (K3 × D1 = 3) | **diterima** (ADR 0004), allow-rule di `trivy-secret.yaml` |
+| T-05 | Apache induk berjalan sebagai `root`; manifest tanpa `securityContext` | A.3 `ps -eo user,comm`; Semgrep 4 temuan `deploy/k8s/app.yaml` | bawaan image dan P8 · bila ada celah, penyerang langsung root | Rendah (K1 × D2 = 2) | **diperbaiki P13**: `USER www-data`, `runAsNonRoot`, `readOnlyRootFilesystem`, drop ALL |
 | T-06 | bucket `storage-file`: AWS-0090, AWS-0132, AWS-0089 | D.1 / P14 E.7 trivy config | kode P6 tanpa versioning/KMS/logging · data scan bisa hilang tertimpa | Rendah (K1 × D2 = 2) | AWS-0090 **diperbaiki P14**; 0132 dan 0089 **diterima** (ADR 0004) |
 | T-07 | satu akun anggota belum 2FA *(ilustrasi)* | butir 16, Settings › Password and authentication | belum diaktifkan sejak P7 · akun bisa diambil alih dengan password saja | Sedang (K2 × D3 = 6) | **diperbaiki** 2026-11-11 |
 
@@ -111,6 +111,6 @@ perbaikan (menunggu Debian).
 | loop A.2 (`installed.json`, `autoload.php`, `composer.lock`, `Dockerfile`) | 200 × 4 | 403 × 4; `/.github/workflows/ci.yml` 404 |
 | `curl -sI localhost:8080/` | versi Apache + PHP | `Server: Apache` |
 | `docker compose exec app id` | `uid=0(root)` | `uid=33(www-data)` |
-| Semgrep `p/default` | 4 temuan (`k8s/app.yaml`); P14: 2 temuan kunci statis di provider Terraform | 0 temuan (243 aturan, 64 berkas) |
+| Semgrep `p/default` | 4 temuan (`deploy/k8s/app.yaml`); P14: 2 temuan kunci statis di provider Terraform | 0 temuan (243 aturan, 64 berkas) |
 | trivy config HIGH/CRITICAL (Dockerfile, k8s, infra) | DS-0002, KSV-0014 ×2, KSV-0118, AWS-0132 | 0 selain AWS-0132 yang diterima |
 | k6 `uji.js` 100 VU setelah hardening | – | p95 76,84 ms, 0 gagal (kinerja tidak turun) |

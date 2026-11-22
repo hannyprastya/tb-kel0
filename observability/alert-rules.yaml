@@ -1,6 +1,6 @@
 # alert-rules.yaml (P11 D.1, disimpan sebagai kode): aturan yang dibuat di
 # Grafana lalu diekspor (Alerting › Alert rules › Export). Dimuat otomatis
-# oleh docker-compose.otel.yml. service=~"app-.+" = semua NIM anggota.
+# oleh deploy/compose/otel.yml. service=~"app-.+" = semua NIM anggota.
 apiVersion: 1
 groups:
   - orgId: 1

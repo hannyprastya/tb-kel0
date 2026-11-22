@@ -1,7 +1,7 @@
 # docker-compose.yml (P7 slide 25; P10 image, P13 WORKERS, P14 Floci)
 services:
   app:
-    build: .
+    build: ./app                  # konteks = app/ (Dockerfile, .dockerignore)
     image: ${IMAGE:-tb-app:dev}   # P10: di CI = image yang diuji lalu di-push
     ports: ["8080:8080"]
     environment:
