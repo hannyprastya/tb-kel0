@@ -18,9 +18,11 @@ provider "aws" {
     s3 = "http://localhost:4566" # alamat Floci
   }
 }
-# bucket berkas unggahan aplikasi (disk s3 Laravel, halaman /berkas). Privat:
-# berkas hanya dibuka lewat tautan bertanda tangan buatan aplikasi.
-# Dipakai aplikasi dengan env AWS_BUCKET = output "bucket".
+# bucket sampul dan scan e-dokumen perpustakaan (disk s3 Laravel: buku/sampul/,
+# buku/scan/) + berkas starter (/berkas). Privat: sampul dibaca lewat rute
+# publik aplikasi (target: CloudFront + OAC), scan lewat tautan bertanda
+# tangan 5 menit. Dipakai aplikasi dengan env AWS_BUCKET = output "bucket".
+# Pemilik komponen: Nadia Kusuma (99000004).
 resource "aws_s3_bucket" "file" {
   bucket = "tb-${var.nim}-berkas"
   # Bucket lab (Floci): destroy ikut menghapus isi dan semua versinya;

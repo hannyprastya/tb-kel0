@@ -16,8 +16,10 @@ provider "aws" {
     sqs = "http://localhost:4566" # alamat Floci
   }
 }
-# antrean job Laravel (QUEUE_CONNECTION=sqs) + DLQ. Aplikasi memakai env
-# SQS_PREFIX = antrean_url tanpa nama antrean, SQS_QUEUE = antrean-NIM.
+# antrean job Laravel (QUEUE_CONNECTION=sqs) + DLQ: job pengingat jatuh tempo
+# (KirimPengingatJatuhTempo, docs/komponen.md bagian 5, ADR 0005) dan
+# notifikasi starter. Aplikasi memakai env SQS_PREFIX = antrean_url tanpa
+# nama antrean, SQS_QUEUE = antrean-NIM. Pemilik: Raka Pratama (99000001).
 resource "aws_sqs_queue" "dlq" {
   name                      = "antrean-${var.nim}-dlq"
   message_retention_seconds = 1209600 # 14 hari: waktu memeriksa pesan rusak

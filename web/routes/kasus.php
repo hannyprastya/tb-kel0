@@ -41,4 +41,5 @@ Route::middleware('api')->prefix('api')->group(function () {
     Route::get('/buku/status', [BukuApiController::class, 'status']);
     Route::get('/buku', [BukuApiController::class, 'cari']);
     Route::get('/buku/{buku}', [BukuApiController::class, 'tampil'])->whereNumber('buku');
+    Route::get('/buku/pinjam/{pinjam}', [BukuApiController::class, 'pinjam'])->whereNumber('pinjam');
 });

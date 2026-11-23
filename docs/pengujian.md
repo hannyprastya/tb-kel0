@@ -50,10 +50,14 @@ Keluaran `bash tests/fungsional.sh` (juga langkah *Test* CI), dipendekkan:
 | K-13 | kembalikan, lalu kembalikan lagi | 200, lalu 404 | 200, 404 | Lulus |
 | K-14 | 30 pinjam serentak, 2 eksemplar | 2 × 201, 28 × 409, tersedia 0 | `2x201 28x409/0` | Lulus |
 | K-15 | `/api/buku/status` | 200 JSON | 200 | Lulus |
+| K-16 | pinjam jatuh tempo besok → `kasus:pengingat-jatuh-tempo` → worker (P14) | `pengingat_terkirim: true` | true (±1–3 s) | Lulus |
+| K-17 | perintah pengingat dijalankan lagi | tetap 1 catatan di `notifikasi` | 1, `dititipkan=0` | Lulus |
+| K-18 | jadwal terdaftar | `kasus:pengingat-jatuh-tempo` di `schedule:list` | ada | Lulus |
 
-Hasil: **F-01..F-19 dan K-01..K-15 semua lulus.** PHPUnit
-(`docker compose run --rm uji`, PostgreSQL): 68 test, 266 assertion lulus,
-14 di antaranya milik modul (`tests/Feature/Kasus/PerpustakaanTest.php`).
+Hasil: **F-01..F-19 dan K-01..K-18 semua lulus** (K-16..K-18 sejak P14).
+PHPUnit (`docker compose run --rm uji`, PostgreSQL): 75 test, 300 assertion
+lulus, 21 di antaranya milik modul (`tests/Feature/Kasus/`). K-16 juga
+lulus dengan `QUEUE_CONNECTION=sqs` (antrean SQS di Floci).
 
 Yang menjamin stok (K-14): satu `UPDATE buku SET tersedia = tersedia - 1
 WHERE id = ? AND tersedia > 0` (baris dikunci PostgreSQL, syarat dicek

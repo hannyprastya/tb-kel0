@@ -1,4 +1,4 @@
-# Evaluasi keamanan · Kelompok 0 · 2026-11-10 (P12), diperbarui setelah P13
+# Evaluasi keamanan · Kelompok 0 · 2026-11-10 (P12), diperbarui setelah P13–P14
 Alat (semua lewat Docker, versi dikunci): Trivy 0.76.0, composer 2.11.2,
 npm 11 (node 24), Larastan 3.15.0 (PHPStan 2.3.7), Semgrep 1.182.1,
 actionlint 1.7.12.
@@ -133,7 +133,7 @@ T-07, worker; **rencanakan** LB + replika, cache, HPA; **kalau sempat**
 rightsizing; **tunda** AWS-0132 (KMS berbayar), CVE tanpa perbaikan
 (menunggu Debian), T-09 (menunggu WAF).
 
-## 8. Pembaruan setelah P13 (dibuktikan ulang dengan alat yang sama)
+## 8. Pembaruan setelah P13–P14 (dibuktikan ulang dengan alat yang sama)
 | Pemeriksaan | Sebelum | Sesudah |
 |-------------|---------|---------|
 | `curl -sI localhost:8080/buku` (T-08) | 3 header keamanan | + `Strict-Transport-Security: max-age=31536000`, `Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; object-src 'none'` |
@@ -141,6 +141,8 @@ rightsizing; **tunda** AWS-0132 (KMS berbayar), CVE tanpa perbaikan
 | k6 `uji.js` 100 VU `/buku` setelah hardening | p95 median 41,6 ms | 31,1 ms (kinerja tidak turun, [optimasi.md](optimasi.md) C.4) |
 | `requests` Pod (`trivy config`, `kubectl --dry-run`) | web 128Mi, worker/scheduler 96Mi | 96Mi, 64Mi; HIGH/CRITICAL tetap 0 |
 | Semgrep `p/default`, `trivy fs` secret, Larastan 5 | 0 · 0 · 0 | 0 · 0 · 0 |
+| `trivy config` per folder `infra/` (P14 E.7) | – | db-dev 0, db-neon 0, antrean 0 (SSE aktif), storage-file AWS-0132 + AWS-0089 (diterima, T-06) |
+| Modul baru P14 (job, perintah, API `/api/buku/pinjam/{id}`) | – | Larastan 5: 0; jawaban API tanpa nomor anggota (Feature test `assertJsonMissingPath`) |
 
 CSP sengaja belum membatasi `script-src`: Alpine.js (Breeze) memakai
 `eval` untuk atribut `x-data`; membatasi skrip butuh build Alpine khusus

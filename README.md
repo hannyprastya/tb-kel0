@@ -34,7 +34,8 @@ alasan dan akibatnya di [ADR 0004](docs/adr/0004-pindah-ke-laravel.md).
 | `GET /buku/{id}` | anggota yang login | rincian + tautan scan e-dokumen 5 menit |
 | `GET /buku/kelola` · `POST /buku` · `POST /buku/{id}/berkas` | petugas | tambah buku, unggah sampul/scan |
 | `POST /buku/pinjam` · `POST /buku/kembali` | petugas | pinjam (409 bila eksemplar habis) dan kembali (404 bila sudah) |
-| `GET /api/buku/status` · `GET /api/buku?q=` · `GET /api/buku/{id}` | siapa saja | JSON untuk k6, uptime monitor, uji |
+| `GET /api/buku/status` · `GET /api/buku?q=` · `GET /api/buku/{id}` · `GET /api/buku/pinjam/{id}` | siapa saja | JSON untuk k6, uptime monitor, uji (tanpa nomor anggota) |
+| tugas `kasus:pengingat-jatuh-tempo` (07.00 WIB) → job `KirimPengingatJatuhTempo` | scheduler, worker | pengingat H-1, idempoten (P14) |
 | `GET /health` · `GET /healthz` | monitor | cek dalam (DB, maks. 3 s) dan dangkal |
 | `/`, `/tamu`, `/berkas`, `/login`, `/register`, `/dashboard` | – | fitur bawaan starter (buku tamu, unggah, Breeze) |
 
@@ -187,20 +188,21 @@ Daftar isi, urutan baca, dan pertanyaan yang dijawab tiap dokumen:
 |---------|-----|-----------|
 | [kebutuhan.md](docs/kebutuhan.md) | workload, asumsi, tabel 1.000/10.000 pengguna, target; ukur ulang Laravel | P9, P13 |
 | [keputusan.md](docs/keputusan.md) | regulasi, matriks berbobot, uji kepekaan, region | P9 |
-| [arsitektur.md](docs/arsitektur.md) | C4 konteks + container | P9, P12 |
-| [adr/](docs/adr/) | 0001–0003 (P9), 0004 pindah ke Laravel (P12) | P9, P12 |
+| [arsitektur.md](docs/arsitektur.md) | C4 konteks + container berjalan/target, sequence pinjam dan pengingat | P9, P12, P14 |
+| [adr/](docs/adr/) | 0001–0003 (P9), 0004 pindah ke Laravel (P12), 0005 antrean pengingat (P14) | P9, P12, P14 |
 | [pengujian.md](docs/pengujian.md) | kriteria lulus, uji fungsional, k6, MTTR, SLO, alert | P10–P12 |
 | [runbook.md](docs/runbook.md) · [postmortem-latihan-1.md](docs/postmortem-latihan-1.md) | deploy, rollback, alert; latihan insiden P11 | P11 |
 | [keamanan.md](docs/keamanan.md) | temuan scan, skor kepatuhan, prioritas | P12, P13 |
 | [optimasi.md](docs/optimasi.md) · [biaya.md](docs/biaya.md) | sebelum vs sesudah, biaya, titik impas serverless | P13 |
+| [komponen.md](docs/komponen.md) · [jaringan.md](docs/jaringan.md) | komponen, event-driven, VPC/subnet | P14 |
 
 ## Kontribusi
 | No | NIM | Nama | Kontribusi nyata (PR dan bagian) |
 |----|-----|------|----------------------------------|
-| 1 | 99000001 | Raka Pratama | aplikasi dasar, `ci.yml` (P10, P12), PR `pindah-laravel` + modul perpustakaan, hardening HSTS/CSP (P13 C.4), ADR 0003/0004, risiko diterima (`keamanan.md` 6) |
-| 2 | 99000002 | Salsa Nuraini | `keputusan.md`, Neon, `biaya.md` + rightsizing (P13 C.5), ADR 0002 |
-| 3 | 99000003 | Dimas Ardiansyah | `pengujian.md`, k6, OTel + alert, runbook, optimasi worker + LB, tanpa mesh (`optimasi.md`) |
-| 4 | 99000004 | Nadia Kusuma | `kebutuhan.md`, `arsitektur.md`, Supabase Storage, cache halaman publik (P13 C.3), ADR 0001 |
+| 1 | 99000001 | Raka Pratama | aplikasi dasar, `ci.yml` (P10, P12), PR `pindah-laravel` + modul perpustakaan, hardening HSTS/CSP (P13 C.4), job + jadwal pengingat, `infra/antrean`, ADR 0003/0004/0005, risiko diterima (`keamanan.md` 6) |
+| 2 | 99000002 | Salsa Nuraini | `keputusan.md`, Neon + `infra/db-neon`, `biaya.md` + rightsizing (P13 C.5), ADR 0002 |
+| 3 | 99000003 | Dimas Ardiansyah | `pengujian.md`, k6, OTel + alert, runbook, optimasi worker + LB, `infra/db-dev`, tanpa mesh (`optimasi.md`) |
+| 4 | 99000004 | Nadia Kusuma | `kebutuhan.md`, `arsitektur.md`, Supabase Storage, cache halaman publik (P13 C.3), `komponen.md`, `jaringan.md`, `infra/storage-file`, ADR 0001, monolit (`komponen.md` 3) |
 
 **Catatan riwayat Git:** di repo contoh ini commit disatukan per pertemuan
 (P9 … P15) oleh satu penulis supaya ceritanya mudah dibaca. Di repo
