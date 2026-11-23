@@ -40,6 +40,7 @@ hapus berkas yang dulu disalin, lalu build ulang.
 | `GET /api/buku/status` | api | siapa saja | `{judul, eksemplar, tersedia, dipinjam, terlambat, jatuh_tempo_besok}` (k6, uptime monitor) |
 | `GET /api/buku?q=` | api | siapa saja | 20 judul pertama yang cocok |
 | `GET /api/buku/{id}` | api | siapa saja | satu judul + `tersedia` |
+| `GET /api/buku/pinjam/{id}` | api | siapa saja | status peminjaman + `pengingat_terkirim` (tanpa nomor anggota) |
 
 Padanan fitur lama (`index.php` P9–P11): `/buku/status` →
 `/api/buku/status`; `POST /buku/pinjam` dan `/buku/kembali` sekarang hanya
@@ -53,6 +54,8 @@ Laravel); 409 dan 404 tetap.
 | Blade + Eloquent + migrasi | tabel `petugas`, `buku`, `pinjam`; model `App\Models\Kasus\{Buku, Pinjam, Petugas}` |
 | Login (Breeze) | katalog tanpa login; rincian untuk anggota login; sirkulasi hanya untuk akun di tabel `petugas` (`php artisan kasus:petugas EMAIL`, cabut dengan `--cabut`), selain itu 403 |
 | Unggah ke object storage | sampul dan scan, jenis diperiksa dari isi berkas, nama acak `buku/sampul/…`, `buku/scan/…` di disk `s3` |
+| Antrean (queue) | job `KirimPengingatJatuhTempo`: idempoten lewat kunci unik `pinjam-ID-TANGGAL` di tabel `notifikasi`; 5 percobaan, jeda 1/3/10/20 menit |
+| Tugas terjadwal | `kasus:pengingat-jatuh-tempo` tiap hari 07.00: titip pengingat untuk pinjaman aktif yang jatuh tempo ≤ besok dan belum diingatkan |
 | Halaman publik | `/buku`, `/buku/{id}/sampul` (tanpa sesi, `Cache-Control: public`) |
 
 ## Jaminan saat ramai

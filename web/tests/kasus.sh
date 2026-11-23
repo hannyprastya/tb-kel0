@@ -78,3 +78,23 @@ cek K-14 "2x201 28x409/0" "${hasil% }/$sisa" "30 pinjam serentak, 2 eksemplar: s
 status=$(curl -s -m 10 "$URL/api/buku/status")
 cek K-15 "200/ya" "$(kode "$URL/api/buku/status")/$(jq -e 'has("tersedia") and has("terlambat")' \
   <<<"$status" >/dev/null && echo ya || echo tidak)" "/api/buku/status: $status"
+
+# ---- P14: pengingat jatuh tempo (perintah terjadwal -> antrean -> worker)
+t=$(token /buku/kelola)
+pid=$(json -d "buku=$id&anggota=A-0042&hari=1" "$URL/buku/pinjam" | jq -r .id)
+docker compose exec -T app php artisan kasus:pengingat-jatuh-tempo >/dev/null 2>&1
+status=false
+for _ in $(seq 1 30); do
+  status=$(curl -s -m 10 "$URL/api/buku/pinjam/$pid" | jq -r .pengingat_terkirim)
+  [ "$status" = true ] && break
+  sleep 1
+done
+cek K-16 true "$status" "pengingat pinjam no. $pid (jatuh tempo besok) dikirim worker"
+keluaran=$(docker compose exec -T app php artisan kasus:pengingat-jatuh-tempo 2>&1)
+sleep 3
+n=$(docker compose exec -T db psql -U app -d app -Atc \
+  "select count(*) from notifikasi where kunci like 'pinjam-$pid-%'")
+hasil=$(grep -o 'dititipkan=[0-9]*' <<<"$keluaran")
+cek K-17 1 "$n" "perintah diulang, pengingat tetap satu: $hasil"
+ada=$(docker compose exec -T app php artisan schedule:list 2>/dev/null | grep -c 'kasus:pengingat-jatuh-tempo')
+cek K-18 1 "$ada" "tugas terjadwal kasus:pengingat-jatuh-tempo terdaftar (tiap hari 07.00)"

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Kasus;
 
 use App\Models\Kasus\Buku;
+use App\Models\Kasus\Pinjam;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -39,6 +41,22 @@ class BukuApiController extends KasusController
             'tersedia' => $buku->tersedia,
             'sampul' => $buku->sampul_path !== null,
             'scan' => $buku->scan_path !== null,
+        ]);
+    }
+
+    /**
+     * GET /api/buku/pinjam/{pinjam} : status satu peminjaman (tanpa nomor
+     * anggota), termasuk apakah pengingatnya sudah dikirim worker (P14).
+     */
+    public function pinjam(Pinjam $pinjam): JsonResponse
+    {
+        return response()->json([
+            'id' => $pinjam->id,
+            'buku' => $pinjam->buku_id,
+            'jatuh_tempo' => $pinjam->jatuh_tempo->toDateString(),
+            'status' => $pinjam->dikembalikan_pada === null ? 'aktif' : 'kembali',
+            'terlambat' => $pinjam->terlambat(),
+            'pengingat_terkirim' => DB::table('notifikasi')->where('kunci', $pinjam->kunciPengingat())->exists(),
         ]);
     }
 }

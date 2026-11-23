@@ -78,6 +78,12 @@ class Pinjam extends Model
         });
     }
 
+    /** Kunci idempotensi pengingat: satu pengingat per peminjaman per tanggal jatuh tempo. */
+    public function kunciPengingat(): string
+    {
+        return 'pinjam-'.$this->id.'-'.$this->jatuh_tempo->toDateString();
+    }
+
     public function terlambat(): bool
     {
         return $this->dikembalikan_pada === null && $this->jatuh_tempo->lt(now()->startOfDay());
