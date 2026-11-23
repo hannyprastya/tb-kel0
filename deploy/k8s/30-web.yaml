@@ -43,8 +43,8 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true # tulis hanya ke emptyDir di bawah
             capabilities: { drop: [ALL] }
-          resources:                     # ukur ulang dengan kubectl top (P13 C.5)
-            requests: { cpu: 100m, memory: 128Mi }
+          resources:                     # P13 C.5: docker stats 30-64 MiB (100 VU) + cadangan
+            requests: { cpu: 100m, memory: 96Mi }
             limits: { cpu: 1000m, memory: 384Mi }
           volumeMounts:
             - { name: storage, mountPath: /var/www/html/storage }

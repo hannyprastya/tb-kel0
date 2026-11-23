@@ -112,3 +112,36 @@ Langkah hitungan (1.000 → 10.000 pengguna):
 6. Pengunjung mengisi buku tamu perpustakaan (aplikasi dasar P5–P7).
 7. Petugas dan monitor bisa membaca ringkasan stok dalam JSON
    (`/buku/status`; sejak P12 `/api/buku/status`).
+
+## 6. Ukur ulang setelah pindah ke Laravel (P13)
+Angka P8 di bagian 2 diukur pada buku tamu PHP. Setelah pindah ke starter
+Laravel (ADR 0004), Salsa dan Dimas mengukur ulang dengan cara yang sama
+(`docker stats` saat k6 `uji-maks.js` 50 VU, 2026-11-23, load average
+±15):
+
+| Ukuran | Buku tamu PHP (P8) | Laravel (P13) | Dipakai di hitungan |
+|--------|--------------------|---------------|---------------------|
+| CPU aplikasi per request | 3,6–4,3 ms | `/buku` 2,47 CPU ÷ 364 req/s = **6,8 ms**; `/api/buku/status` 6,5 ms | 6,8 × 2 (faktor vCPU cloud) ≈ **14 ms** |
+| CPU database per request | 3,7–5,1 ms | 1,50 ÷ 364 = **4,1 ms** | tetap 5 ms (×2 = 10 ms) |
+| RAM proses web saat dibebani | 17 MB | 64 MiB (100 VU); + worker ±31 MiB, scheduler ±29 MiB | (64 + 500 OS) × 1,3 = 733 MB → tetap 1 GB per task web |
+| Halaman katalog | 693 B (3 baris) | 25,9 KB HTML (50 baris), **1,95 KB** dengan gzip | 2 KB + sampul |
+
+Akibat untuk 10.000 pengguna (200 req/s puncak):
+1. **Tanpa cache:** 200 × 0,014 = 2,8 → × 1,3 = **3,64 vCPU** → 8 task ×
+   0,5 vCPU, dua kali rancangan P9.
+2. **Dengan cache halaman `publik` di CDN** (P13 C.3): asumsi 70% permintaan
+   = katalog + sampul (pola minggu ujian: mencari buku), rasio HIT 95%
+   (lab: 10 dari 11). Yang sampai ke aplikasi = 200 × (0,30 + 0,70 × 0,05)
+   = **67 req/s** → 67 × 0,014 × 1,3 = **1,22 vCPU** → rancangan 4 × 0,5
+   vCPU (2 vCPU) **tetap cukup**, cadangan ±60%.
+3. Kapasitas per task = 0,5 ÷ 0,014 ≈ 36 req/s; bila cache CDN gagal
+   seluruhnya, auto scaling maks 6 task = 214 req/s ≥ 200 (optimasi.md, keputusan produksi).
+4. 1.000 pengguna: 20 × 0,014 × 1,3 = 0,36 vCPU → 1 vCPU tetap cukup.
+   **Render Free (0,1 CPU)** hanya ±7 req/s katalog tanpa cache: cukup
+   untuk latihan dan demo, tidak untuk 1.000 pengguna sungguhan.
+5. Bandwidth aplikasi turun: 200 × 2 KB × 8 = 3,2 Mbps (gzip), dari 9,6
+   Mbps di bagian 3; sampul tetap lewat CDN.
+
+Rancangan target (komponen, biaya) karena itu **bergantung pada cache
+halaman publik**: dicatat sebagai asumsi di [biaya.md](biaya.md) dan
+ditinjau ulang setelah ada data rasio HIT sungguhan.

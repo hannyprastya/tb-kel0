@@ -34,7 +34,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: { drop: [ALL] }
           resources:
-            requests: { cpu: 50m, memory: 96Mi }
+            requests: { cpu: 50m, memory: 64Mi }   # P13 C.5: ±31 MiB terukur
             limits: { cpu: 500m, memory: 256Mi }
           volumeMounts:
             - { name: storage, mountPath: /var/www/html/storage }
@@ -74,7 +74,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: { drop: [ALL] }
           resources:
-            requests: { cpu: 50m, memory: 96Mi }
+            requests: { cpu: 50m, memory: 64Mi }   # P13 C.5: ±31 MiB terukur
             limits: { cpu: 500m, memory: 256Mi }
           volumeMounts:
             - { name: storage, mountPath: /var/www/html/storage }

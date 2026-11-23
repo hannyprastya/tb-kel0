@@ -4,7 +4,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 export const options = { vus: 20, duration: "1m" };
-const RUTE = ["/", "/tamu", "/api/tamu"];
+const RUTE = ["/", "/buku", "/api/buku/status"];   // kelompok 0: rute kasus
 export default function () {
   const r = http.get(__ENV.URL + RUTE[Math.floor(Math.random() * RUTE.length)]);
   check(r, { "status 200": (x) => x.status === 200 });
