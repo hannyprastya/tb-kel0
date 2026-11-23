@@ -1,30 +1,211 @@
 # Sistem Perpustakaan Kampus · Kelompok 0 (Kasus 0)
 
-> **Contoh dari dosen** untuk kasus di luar Tabel K. Nama dan NIM fiktif.
-> Menyalin dokumen ini ke laporan kelompok = plagiat (≥ 50% sama → nilai 0).
+> **CONTOH DARI DOSEN, BUKAN TUGAS KELOMPOK MANA PUN.**
+> Repo ini menunjukkan bentuk repo Tugas Besar yang sudah selesai (P9–P15)
+> untuk **Kasus 0 · Perpustakaan kampus**, kasus yang sengaja **tidak ada di
+> daftar 10 kasus (Tabel K)**. Nama anggota dan NIM (`99000001`–`99000004`)
+> fiktif. Pakai sebagai contoh bentuk dan cara berpikir, bukan sebagai bahan
+> salin: laporan atau kode yang **50% atau lebih sama** dengan dokumen lain
+> (termasuk repo contoh ini) dianggap **plagiat dan bernilai 0** (Panduan
+> Tugas Besar Bagian 9). Angka hasil uji di sini milik sistem contoh ini;
+> angka kelompokmu pasti berbeda.
 
-Perpustakaan pusat kampus ingin katalog bisa dicari dari mana saja, stok
-eksemplar tidak lagi selisih, dan anggota diingatkan sebelum jatuh tempo.
+Perpustakaan pusat sebuah kampus swasta ingin katalog bisa dicari dari mana
+saja, stok eksemplar tidak lagi selisih, dan anggota diingatkan sehari
+sebelum jatuh tempo, termasuk saat ramai di minggu ujian.
 
 ## Anggota
-| NIM | Nama | Peran (Tabel 0) |
-|-----|------|-----------------|
-| 99000001 | Raka Pratama | Penulis ADR / koordinator (repo, README) |
-| 99000002 | Salsa Nuraini | Analis solusi & biaya (`keputusan.md`) |
-| 99000003 | Dimas Ardiansyah | Analis kebutuhan (`kebutuhan.md`) |
-| 99000004 | Nadia Kusuma | Perancang diagram (`arsitektur.md`) |
+| NIM | Nama | Peran |
+|-----|------|-------|
+| 99000001 | Raka Pratama | Aplikasi & CI/CD (pemilik repo, akun Render) |
+| 99000002 | Salsa Nuraini | Data & IaC (akun Neon) |
+| 99000003 | Dimas Ardiansyah | Pengujian & observabilitas (k6, OTel, alert) |
+| 99000004 | Nadia Kusuma | Arsitektur & dokumentasi (C4, ADR, evaluasi; akun Supabase) |
 
-## Aplikasi dasar
-Buku tamu dari repo `cc-99000001-app` milik Raka, dipilih karena satu-satunya
-yang sudah jalan di compose dan di kind dengan readiness `/health` dan
-liveness `/healthz` (P8). Fitur kasus (katalog, pinjam, kembali, status
-JSON) ditempel di atas cabang 404 `index.php`.
+## Aplikasi
+P9–P11: buku tamu PHP satu berkas (`index.php`) dari repo `cc-99000001-app`
++ fitur kasus. **Sejak P12: starter Laravel 13** (PHP 8.4, PostgreSQL 17)
+dengan fitur kasus sebagai **modul** di `web/` ([web/KASUS-00.md](web/KASUS-00.md));
+alasan dan akibatnya di [ADR 0004](docs/adr/0004-pindah-ke-laravel.md).
+
+| Rute | Siapa | Fungsi |
+|------|-------|--------|
+| `GET /buku?q=` · `GET /buku/{id}/sampul` | siapa saja (publik, boleh di-cache) | katalog + cari, sampul dari object storage |
+| `GET /buku/{id}` | anggota yang login | rincian + tautan scan e-dokumen 5 menit |
+| `GET /buku/kelola` · `POST /buku` · `POST /buku/{id}/berkas` | petugas | tambah buku, unggah sampul/scan |
+| `POST /buku/pinjam` · `POST /buku/kembali` | petugas | pinjam (409 bila eksemplar habis) dan kembali (404 bila sudah) |
+| `GET /api/buku/status` · `GET /api/buku?q=` · `GET /api/buku/{id}` | siapa saja | JSON untuk k6, uptime monitor, uji |
+| `GET /health` · `GET /healthz` | monitor | cek dalam (DB, maks. 3 s) dan dangkal |
+| `/`, `/tamu`, `/berkas`, `/login`, `/register`, `/dashboard` | – | fitur bawaan starter (buku tamu, unggah, Breeze) |
+
+Petugas = akun yang sudah mendaftar lalu dijadikan petugas:
+`docker compose exec app php artisan kasus:petugas EMAIL`.
+
+## Peta folder
+```
+tb-kel0/
+├── README.md  docker-compose.yml                    # compose di akar: docker compose up tanpa opsi
+├── .gitignore  trivy-secret.yaml  .trivyignore.yaml  # aturan scan untuk seluruh repo (P12)
+├── .github/        workflows/ci.yml  dependabot.yml
+├── web/            aplikasi Laravel (semua yang masuk image)
+│   ├── Dockerfile  Dockerfile.otel  .dockerignore  docker/
+│   ├── app/  bootstrap/  config/  database/  lang/  public/  resources/  routes/  tests/
+│   └── KASUS.md  KASUS-00.md                         # aturan modul kasus + modul perpustakaan
+├── deploy/
+│   ├── compose/    otel.yml  lb.yml  nginx.conf  workers.yml  apache-proses.conf
+│   └── k8s/        00-rahasia.yaml … 50-hpa.yaml
+├── infra/          Terraform per komponen
+├── observability/  alert + dasbor SLO Grafana sebagai kode
+├── tests/          fungsional.sh  pantau.sh  k6/
+└── docs/           README.md (daftar isi) + dokumen P9–P15 + adr/
+```
+
+| Folder | Isi |
+|--------|-----|
+| akar | `docker-compose.yml` (app, worker, scheduler, db, floci) dan aturan scan untuk seluruh repo: Trivy otomatis membaca `trivy-secret.yaml` dari folder kerja |
+| `.github/` | pipeline CI/CD (P10, P12) dan Dependabot (P12) |
+| `web/` | kode Laravel; konteks build `docker build web`; docroot hanya `web/public/`. Modul perpustakaan: `routes/kasus.php`, `app/*/Kasus/`, `database/migrations/2026_12_01_*`, `resources/views/kasus/`, `tests/Feature/Kasus/`, `tests/kasus.sh` |
+| `deploy/compose/` | lapisan compose lab: OpenTelemetry (P11), batas worker Apache (P11 B), load balancer + cache Nginx (P13) |
+| `deploy/k8s/` | manifest kind: Secret, db, Job migrasi, web, worker + scheduler, HPA (P8, P13) |
+| `infra/` | satu komponen Terraform per anggota (P14), diuji ke Floci |
+| `observability/` | alert error 5xx dan dasbor SLO yang dimuat Grafana (P11) |
+| `tests/` | uji fungsional F-01..F-19 (+ K-xx dari `web/tests/kasus.sh`), pemantau `/health`, skrip k6 |
+| `docs/` | dokumen P9–P15 + ADR; mulai dari [docs/README.md](docs/README.md) |
+
+Langkah modul P10–P15 masih memakai buku tamu PHP; padanannya di repo ini
+(mis. `docker build -t NAMA web`, Larastan, `deploy/compose/…`) ada di
+tabel *Padanan langkah modul* di README starter `tb-laravel`.
 
 ## Cara menjalankan
-- Docker compose (P7): `docker compose up -d --build`, buka `localhost:8080`
-  (buku tamu) dan `localhost:8080/buku` (katalog)
-- Kubernetes (P8): manifest di `k8s/app.yaml`
 
-## Dokumen desain
-- [Kebutuhan](docs/kebutuhan.md) · [Keputusan](docs/keputusan.md)
-- [Arsitektur](docs/arsitektur.md) · [ADR](docs/adr/)
+### GitHub Codespaces (jalur utama)
+1. Halaman repo › *Code › Codespaces › … › New with options*, mesin
+   **2-core** (8 GB RAM, 32 GB disk) cukup.
+2. Di terminal codespace, dari akar repo:
+   ```bash
+   docker compose up -d --build --wait     # build pertama beberapa menit
+   bash tests/fungsional.sh                # F-01..F-19 dan K-xx harus "Lulus"
+   ```
+3. Tab *Ports*: buka port **8080**. Bila CSS tidak termuat, jalankan ulang
+   dengan alamat publik codespace:
+   ```bash
+   export APP_URL=https://${CODESPACE_NAME}-8080.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN} PAKSA_APP_URL=1
+   docker compose up -d --wait
+   ```
+4. Daftar akun di `/register`, lalu jadikan petugas:
+   `docker compose exec app php artisan kasus:petugas EMAIL`. Data contoh:
+   `docker compose exec app php artisan db:seed --force`.
+5. Selesai: *Codespaces › Stop* (kuota dihitung per jam mesin menyala).
+
+Laptop (jalur cadangan): Docker Desktop atau OrbStack, perintah yang sama.
+
+### Perintah yang sering dipakai (dari akar repo)
+```bash
+docker compose run --rm --build uji                                  # PHPUnit (database "uji")
+docker compose run --rm uji vendor/bin/phpstan analyse --memory-limit=1G   # Larastan level 5
+docker compose logs -f app worker                                    # log aplikasi dan worker
+bash tests/pantau.sh                                                 # jam + kode /health tiap 2 s
+
+# load test k6, hanya ke compose sendiri (jaringan = nama folder + _default)
+docker run --rm -i --network tb-kel0_default -e URL=http://app:8080 -e RUTE=/buku \
+  grafana/k6:1.8.2 run --vus 25 --duration 1m - < tests/k6/uji.js
+
+# OpenTelemetry + Grafana (P11): http://localhost:3000
+export NIM=99000003 COMPOSE_FILE=docker-compose.yml:deploy/compose/otel.yml
+docker compose up -d --build --wait
+
+# load balancer + cache Nginx (P13), dua replika app
+docker compose down
+COMPOSE_FILE=docker-compose.yml:deploy/compose/lb.yml docker compose up -d --build --wait --scale app=2
+
+# mode satu container seperti di Render
+JALANKAN_WORKER=1 docker compose up -d --wait --scale worker=0 --scale scheduler=0
+
+docker compose down          # berhenti; -v juga menghapus data database
+```
+
+## CI/CD (`.github/workflows/ci.yml`)
+Setiap PR dan push ke `main` menjalankan satu job `build-test-deploy`
+(nama check di ruleset `main`): `composer audit` + `npm audit` → Semgrep
+`p/default` → `trivy config` + `trivy fs --scanners secret` → image uji:
+Larastan level 5 dan `php artisan test` (PostgreSQL service) → build image
+produksi dari `web/` → compose + `tests/fungsional.sh` (F + K) → Trivy
+image (gagal bila CRITICAL yang sudah ada perbaikannya) → **push ke GHCR**
+(hanya `main`, `GITHUB_TOKEN` bawaan) → **deploy ke Render** (hanya bila
+diaktifkan). Semua action dikunci SHA, izin token `contents: read,
+packages: write`. Dependabot (`.github/dependabot.yml`) mengusulkan versi
+Composer, npm, digest Docker, SHA action, dan provider Terraform.
+
+**Tanpa secret apa pun pipeline tetap hijau:** langkah Deploy dilewati
+kecuali variabel repo `RENDER_ENABLED` = `true` (lalu butuh secret
+`RENDER_DEPLOY_HOOK`).
+
+## Deploy: Render + Neon + Supabase Storage
+Render Free hanya memberi satu web service, jadi aplikasi berjalan dalam
+**mode satu container**: `JALANKAN_WORKER=1` membuat supervisord
+menyalakan Apache, queue worker, dan scheduler bersama.
+
+1. Buat `APP_KEY` sekali (simpan di pengelola password, **jangan** di-commit):
+   ```bash
+   docker run --rm --entrypoint php ghcr.io/hannyprastya/tb-kel0:TAG artisan key:generate --show
+   ```
+2. Supabase › project › *Storage*: bucket **privat** `tb-kel0-berkas`;
+   *Project Settings › Storage › S3 Connection*: salin *Endpoint* dan
+   *Region*, buat *S3 access key*.
+3. Render › web service dari image GHCR (paket GHCR dijadikan *Public*) ›
+   *Environment*:
+
+   | Variabel | Nilai |
+   |----------|-------|
+   | `APP_KEY` | hasil langkah 1 (`base64:…`) |
+   | `APP_PEMILIK` | `Kelompok 0 - Perpustakaan Kampus` |
+   | `APP_URL` | `https://NAMA-LAYANAN.onrender.com` |
+   | `DATABASE_URL` | connection string **pooled** Neon, berakhir `?sslmode=require` |
+   | `MIGRASI_SAAT_START` | `1` |
+   | `JALANKAN_WORKER` | `1` |
+   | `AWS_ENDPOINT` | `https://PROJECT_REF.storage.supabase.co/storage/v1/s3` |
+   | `AWS_DEFAULT_REGION` | region project Supabase (mis. `ap-southeast-1`) |
+   | `AWS_BUCKET` | `tb-kel0-berkas` |
+   | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | S3 access key Supabase |
+   | `AWS_USE_PATH_STYLE_ENDPOINT` | `true` |
+
+4. *Settings › Health Check Path*: `/health`.
+5. GitHub repo › *Settings › Secrets and variables › Actions*: secret
+   `RENDER_DEPLOY_HOOK`, variabel `RENDER_ENABLED` = `true`; *Rules ›
+   Rulesets*: `main` wajib PR + check `build-test-deploy`.
+
+Nilai di atas yang huruf besar (`NAMA-LAYANAN`, `PROJECT_REF`, `TAG`)
+adalah tempat isi, bukan nilai sungguhan. Kunci Supabase, password Neon,
+dan `APP_KEY` hanya ada di Render *Environment*. Rollback dan penanganan
+alert: [docs/runbook.md](docs/runbook.md).
+
+## Dokumen
+Daftar isi, urutan baca, dan pertanyaan yang dijawab tiap dokumen:
+[docs/README.md](docs/README.md).
+
+| Dokumen | Isi | Pertemuan |
+|---------|-----|-----------|
+| [kebutuhan.md](docs/kebutuhan.md) | workload, asumsi, tabel 1.000/10.000 pengguna, target | P9 |
+| [keputusan.md](docs/keputusan.md) | regulasi, matriks berbobot, uji kepekaan, region | P9 |
+| [arsitektur.md](docs/arsitektur.md) | C4 konteks + container | P9, P12 |
+| [adr/](docs/adr/) | 0001–0003 (P9), 0004 pindah ke Laravel (P12) | P9, P12 |
+| [pengujian.md](docs/pengujian.md) | kriteria lulus, uji fungsional, k6, MTTR, SLO, alert | P10–P12 |
+| [runbook.md](docs/runbook.md) · [postmortem-latihan-1.md](docs/postmortem-latihan-1.md) | deploy, rollback, alert; latihan insiden P11 | P11 |
+| [keamanan.md](docs/keamanan.md) | temuan scan, skor kepatuhan, prioritas | P12 |
+
+## Kontribusi
+| No | NIM | Nama | Kontribusi nyata (PR dan bagian) |
+|----|-----|------|----------------------------------|
+| 1 | 99000001 | Raka Pratama | aplikasi dasar, `ci.yml` (P10, P12), PR `pindah-laravel` + modul perpustakaan, ADR 0003/0004, risiko diterima (`keamanan.md` 6) |
+| 2 | 99000002 | Salsa Nuraini | `keputusan.md`, Neon, ADR 0002 |
+| 3 | 99000003 | Dimas Ardiansyah | `pengujian.md`, k6, OTel + alert, runbook |
+| 4 | 99000004 | Nadia Kusuma | `kebutuhan.md`, `arsitektur.md`, Supabase Storage, ADR 0001 |
+
+**Catatan riwayat Git:** di repo contoh ini commit disatukan per pertemuan
+(P9 … P15) oleh satu penulis supaya ceritanya mudah dibaca. Di repo
+kelompok sungguhan, setiap anggota bekerja lewat **branch dan pull request
+sendiri** dan me-review PR anggota lain; riwayat itulah bukti kontribusi
+yang dinilai.
+
+Semua data di aplikasi dan dokumen adalah data contoh, bukan data pribadi
+sungguhan.

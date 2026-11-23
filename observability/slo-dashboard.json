@@ -13,7 +13,7 @@
     "from": "now-30m",
     "to": "now"
   },
-  "description": "SLO P11 (pengujian.md Tabel 7): p95 katalog <= 300 ms, 5xx < 0,5%, alert 5xx > 5% selama 30 s",
+  "description": "SLO P11 (docs/pengujian.md Tabel 7): p95 katalog GET /buku <= 300 ms, 5xx < 0,5%, alert 5xx > 5% selama 30 s. Nama span = METODE + rute Laravel, mis. \"GET /buku\", \"POST /buku/pinjam\", \"GET /api/buku/status\".",
   "panels": [
     {
       "id": 1,
@@ -88,7 +88,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_spanmetrics_latency_bucket{service=~\"app-.+\",span_kind=\"SPAN_KIND_SERVER\"}[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_spanmetrics_latency_bucket{service=~\"app-.+\",span_kind=\"SPAN_KIND_SERVER\",span_name!~\"GET /healthz?\"}[1m])))",
           "legendFormat": "{{span_name}}",
           "datasource": {
             "type": "prometheus",
@@ -144,8 +144,60 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (span_name) (rate(traces_spanmetrics_calls_total{service=~\"app-.+\",span_kind=\"SPAN_KIND_SERVER\"}[1m]))",
+          "expr": "sum by (span_name) (rate(traces_spanmetrics_calls_total{service=~\"app-.+\",span_kind=\"SPAN_KIND_SERVER\",span_name!~\"GET /healthz?\"}[1m]))",
           "legendFormat": "{{span_name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Job antrean diproses per detik (service worker)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service) (rate(traces_spanmetrics_calls_total{service=~\"worker-.+\",span_kind=\"SPAN_KIND_CONSUMER\",span_name=~\"process.*\"}[1m]))",
+          "legendFormat": "{{service}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

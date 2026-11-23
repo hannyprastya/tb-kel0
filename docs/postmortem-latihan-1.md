@@ -6,6 +6,9 @@ Notulis/fasilitator: Salsa Nuraini
 > Jam di bawah berasal dari pengulangan latihan pada 2026-11-22 di repo
 > contoh (pengujian.md Tabel 5, latihan 1); urutannya sama dengan latihan
 > asli kelompok.
+> Latihan ini dijalankan pada **buku tamu PHP** (P11); sejak P12 aplikasi
+> pindah ke Laravel (ADR 0004) dan latihan gangguan diulang di P15
+> ([postmortem.md](postmortem.md)).
 
 ## Ringkasan
 Fasilitator menghentikan database lab saat k6 5 menit berjalan. Semua

@@ -1,7 +1,0 @@
-# docker-compose.workers.yml (P11 Bagian B): batasi worker Apache.
-# Pakai (B.3): tambahkan ke COMPOSE_FILE, lalu isi WORKERS=1 atau 4.
-services:
-  app:
-    environment:
-      WORKERS: ${WORKERS:-1}
-    volumes: ["./workers.conf:/etc/apache2/conf-enabled/workers.conf:ro"]
