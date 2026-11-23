@@ -114,8 +114,10 @@ menjadi pilihan yang lebih masuk akal (dicatat di ADR 0001).
   Indonesia, latensi, kode Terraform P14 sudah memakai provider dan region
   ini).
 - **Sekarang (lingkungan latihan):** Render (container dari GHCR) + Neon
-  (PostgreSQL terkelola) di Singapura, paket gratis, hanya data contoh.
-  Container yang sama, jadi pindah ke Fargate tidak mengubah aplikasi.
+  (PostgreSQL terkelola) di Singapura, paket gratis, hanya data contoh;
+  sejak P12 ditambah Supabase Storage (object storage S3-compatible) untuk
+  sampul dan scan (ADR 0004). Container yang sama, jadi pindah ke Fargate
+  dan S3 tidak mengubah aplikasi, hanya environment.
 - **Risiko lock-in & exit plan:** task definition ECS, ALB, dan IAM khas
   AWS. Exit plan: aplikasi tetap satu image OCI standar yang membaca
   `DATABASE_URL` dari environment (sudah jalan di compose, kind, Render);

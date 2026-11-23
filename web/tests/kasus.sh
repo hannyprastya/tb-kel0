@@ -98,3 +98,24 @@ hasil=$(grep -o 'dititipkan=[0-9]*' <<<"$keluaran")
 cek K-17 1 "$n" "perintah diulang, pengingat tetap satu: $hasil"
 ada=$(docker compose exec -T app php artisan schedule:list 2>/dev/null | grep -c 'kasus:pengingat-jatuh-tempo')
 cek K-18 1 "$ada" "tugas terjadwal kasus:pengingat-jatuh-tempo terdaftar (tiap hari 07.00)"
+
+# ---- P15: database mati -> halaman kasus 503 ramah, API 503 JSON
+if [ -z "${TANPA_DB_MATI:-}" ]; then
+  docker compose stop db >/dev/null 2>&1
+  kepala=$(curl -s -m 10 -D - -o "$KERJA/halaman" "$URL/buku?q=$KODE")
+  k1=$(head -n 1 <<<"$kepala" | cut -d' ' -f2)
+  maaf=$(grep -c "Maaf" "$KERJA/halaman")
+  k2=$(kode "$URL/api/buku/status")
+  badan=$(curl -s -m 10 "$URL/api/buku/status")
+  docker compose start db >/dev/null 2>&1
+  tunggu_pulih
+  cek K-19 "503/1/503" "$k1/$maaf/$k2" "db mati: katalog 503 ramah, API $badan"
+
+  docker compose pause db >/dev/null 2>&1      # db hidup tetapi tidak menjawab
+  hasil=$(curl -s -m 15 -o "$KERJA/halaman" -w "%{http_code} %{time_total}" "$URL/buku?q=macet$KODE")
+  maaf=$(grep -c "Maaf" "$KERJA/halaman")
+  k2=$(kode "$URL/api/buku/status")
+  docker compose unpause db >/dev/null 2>&1
+  tunggu_pulih
+  cek K-20 "503/1/503" "${hasil%% *}/$maaf/$k2" "db macet: katalog 503 ramah dalam ${hasil##* } s (batas 3 s), API 503"
+fi
