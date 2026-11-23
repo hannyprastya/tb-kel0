@@ -51,5 +51,5 @@ Deteksi 52 s · sampai mitigasi 83 s · lama dampak ±84 s.
 | Tindakan | Jenis | Pemilik | Tenggat | Tautan |
 |----------|-------|---------|---------|--------|
 | Runbook 3.2 memakai `docker compose ps -a` | pulihkan | Dimas | 2026-11-09 | PR `docs/runbook-ps-a` |
-| Halaman ramah 503 + batas waktu 3 s | cegah/pulihkan | Dimas | P15 | PR `fix/db-gagal-ramah` |
+| Halaman ramah 503 + batas waktu 3 s | cegah/pulihkan | Dimas | P15 | starter Laravel (P12) + perbaikan `DbGagal` untuk db macet |
 | Alert disimpan sebagai kode supaya semua anggota punya aturan yang sama | deteksi | Dimas | 2026-11-10 | `observability/alert-rules.yaml` |

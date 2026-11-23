@@ -1,4 +1,4 @@
-# Arsitektur · Perpustakaan Kampus (Kelompok 0) · v2 · 2026-11-17
+# Arsitektur · Perpustakaan Kampus (Kelompok 0) · v3 final · 2026-11-20
 
 Perpustakaan pusat kampus swasta (±6.000 mahasiswa, ±300 dosen dan staf)
 memindahkan katalog, pinjam-kembali, dan pengingat jatuh tempo ke aplikasi
@@ -9,12 +9,13 @@ perpustakaan, stok sering selisih, dan anggota lupa tanggal kembali. Beban
 naik ±5× di minggu ujian.
 
 Dokumen terkait: [kebutuhan](kebutuhan.md) · [keputusan](keputusan.md) ·
-[komponen](komponen.md) · [jaringan](jaringan.md) · [ADR](adr/) ·
-[infra/](../infra/README.md)
+[komponen](komponen.md) · [jaringan](jaringan.md) · [evaluasi](evaluasi.md)
+· [ADR](adr/) · [infra/](../infra/README.md)
 
 Riwayat: v1 (P9, satu container web PHP), v1.1 (P12, pindah ke Laravel:
 web + worker + scheduler dari satu image, ADR 0004), v2 (P14, komponen
-target lengkap) tersimpan di riwayat Git file ini.
+target lengkap), v3 (P15, deployment diagram + evaluasi) tersimpan di
+riwayat Git file ini.
 
 ## Ringkasan: yang berjalan vs rancangan target
 
@@ -141,7 +142,90 @@ flowchart LR
   class pesan,gh luar
 ```
 
-## 4. Sequence diagram · pinjam buku (jalur normal dan gagal)
+## 4. Deployment diagram 1 · berjalan (2026-11-20)
+
+```mermaid
+flowchart LR
+  user["PENGGUNA<br/>browser"]
+  subgraph gh["GitHub"]
+    ci["GitHub Actions<br/>scan · uji · build · push"]
+    ghcr[("GHCR<br/>image tb-kel0:HASH · 613 MB")]
+  end
+  subgraph rd["Render&nbsp;·&nbsp;Singapore"]
+    web["1 container · Free 0,1 CPU 512 MB<br/>supervisord: Apache + queue:work + schedule:work<br/>±140 MiB saat dibebani"]
+  end
+  subgraph ne["Neon&nbsp;·&nbsp;AWS&nbsp;ap-southeast-1"]
+    db[("PostgreSQL 17<br/>Free 0,25 CU · tanpa HA · PITR 6 jam")]
+  end
+  subgraph sb["Supabase&nbsp;·&nbsp;Singapore"]
+    st[("Storage Free<br/>bucket privat tb-kel0-berkas · API S3")]
+  end
+  mon["Uptime monitor<br/>GET /health tiap 5 menit"]
+  bk[("RENCANA: salinan backup<br/>pg_dump harian 01.30 + bucket mingguan · laptop pembina")]
+  user -- "HTTPS" --> web
+  web -- "SQL, TLS" --> db
+  web -- "S3 API, HTTPS" --> st
+  ci -- "push image" --> ghcr
+  ghcr -- "pull saat deploy" --> web
+  mon -- "HTTPS" --> web
+  db -. "backup harian" .-> bk
+  st -. "sync mingguan" .-> bk
+  classDef luar fill:#EEF0F8,stroke:#8A8FA0,stroke-dasharray: 5 5
+  classDef rencana fill:#fff,stroke:#F2A900,color:#5A6070,stroke-dasharray: 5 5
+  class gh,mon luar
+  class bk rencana
+```
+
+GHCR tidak berada di jalur permintaan pengguna; ia hanya dibutuhkan saat
+deploy (dipakai di SPOF, evaluasi.md bagian 1). Supabase hanya di jalur
+sampul dan scan; katalog dan pinjam tetap jalan tanpanya.
+
+## 5. Deployment diagram 2 · target multi-AZ (rencana)
+
+```mermaid
+flowchart LR
+  user["PENGGUNA<br/>browser"]
+  cdn["CloudFront + WAF<br/>edge Jakarta · cache halaman publik"]
+  subgraph cl["AWS&nbsp;ap-southeast-3&nbsp;Jakarta&nbsp;·&nbsp;rencana"]
+    subgraph vpc["VPC&nbsp;10.0.0.0/16&nbsp;·&nbsp;2&nbsp;zona"]
+      lb["ALB<br/>2 node · publik 10.0.1.0/24, 10.0.2.0/24"]
+      nat["NAT gateway<br/>1 buah · publik zona a"]
+      subgraph z1["Zona&nbsp;a&nbsp;·&nbsp;privat-app&nbsp;10.0.11.0/24&nbsp;·&nbsp;privat-db&nbsp;10.0.21.0/24"]
+        w1["web · 2 task<br/>0,5 vCPU · 1 GB"]
+        k1["worker · 1 task + scheduler · 1 task<br/>0,25 vCPU · 0,5 GB"]
+        p1[("RDS primer<br/>db.t4g.medium")]
+      end
+      subgraph z2["Zona&nbsp;b&nbsp;·&nbsp;privat-app&nbsp;10.0.12.0/24&nbsp;·&nbsp;privat-db&nbsp;10.0.22.0/24"]
+        w2["web · 2 task<br/>0,5 vCPU · 1 GB"]
+        p2[("RDS standby<br/>db.t4g.medium")]
+      end
+    end
+    s3[("S3 Standard<br/>3 zona · versioning")]
+    q[["SQS + DLQ<br/>regional"]]
+  end
+  user -- "HTTPS" --> cdn
+  cdn -- "HTTPS" --> lb
+  cdn -- "HTTPS, sampul" --> s3
+  lb -- "HTTP 8080" --> w1
+  lb -- "HTTP 8080" --> w2
+  w1 -- "SQL, TLS lewat RDS Proxy" --> p1
+  w2 -- "SQL, TLS lewat RDS Proxy" --> p1
+  k1 -- "SQL, TLS lewat RDS Proxy" --> p1
+  p1 -- "replikasi sinkron" --> p2
+  w1 -- "gateway endpoint" --> s3
+  k1 -. "keluar internet" .-> nat
+  nat -- "HTTPS" --> q
+  w1 -. "keluar internet" .-> nat
+  w2 -. "keluar internet" .-> nat
+```
+
+Satu NAT gateway sengaja dipilih (hemat ±US$44/bulan): bila zona a mati,
+task web di zona b tetap melayani pengguna, tetapi titip/ambil job SQS dan
+menarik image baru tertunda sampai NAT pulih; scheduler dan worker
+dijalankan ulang ECS di zona b. Trade-off ini ditulis di
+[evaluasi.md](evaluasi.md) bagian 6.
+
+## 6. Sequence diagram · pinjam buku (jalur normal dan gagal)
 
 Aksi utama kasus. Nomor langkah dirujuk di postmortem.
 
@@ -175,7 +259,7 @@ sequenceDiagram
   end
 ```
 
-## 5. Sequence diagram · pengingat jatuh tempo (event-driven, P14)
+## 7. Sequence diagram · pengingat jatuh tempo (event-driven, P14)
 
 ```mermaid
 sequenceDiagram
@@ -201,3 +285,38 @@ sequenceDiagram
     Note over Q,K: gagal 5x (±34 menit) → failed_jobs, worker mati → DLQ
   end
 ```
+
+## 8. Kebutuhan berangka (ringkas dari kebutuhan.md)
+- 1.000 pengguna: 100 bersamaan, 20 req/s, 1 vCPU, 1 GB RAM.
+- 10.000 pengguna: 1.000 bersamaan, 200 req/s; Laravel ±14 ms CPU per
+  request (bagian 6) → 4 task web × 0,5 vCPU **bila** halaman publik
+  di-cache CDN (±67 req/s ke aplikasi), maks 6 task tanpa cache; database
+  2 vCPU dengan pooler; object storage 29 GB.
+- Target: uptime 99,5% (sekarang) dan 99,9% (target); p95 katalog < 1 s
+  pada 100 VU (terukur 49 ms); RPO ≤ 24 jam / RTO ≤ 4 jam (sekarang), RPO
+  ≤ 5 menit / RTO ≤ 1 jam (target); pengingat ≤ 1 jam terlambat.
+
+## 9. Risiko dan biaya
+Rincian di [evaluasi.md](evaluasi.md): SPOF, ketersediaan seri/paralel,
+RPO/RTO, pilar Well-Architected, biaya per komponen, dan trade-off.
+Ringkasnya:
+- **Biaya bulanan:** berjalan US$0 (paket gratis); target satu zona
+  ±US$284 (±Rp4,7 juta), multi-AZ ±US$360 (±Rp5,9 juta), dengan jadwal
+  skala ±US$322. Komponen termahal: database Multi-AZ (±43%).
+- **Risiko utama sekarang:** satu container (web + worker + scheduler) dan
+  satu database tanpa standby (SPOF); container tidur saat sepi sehingga
+  pengingat bisa terlambat; backup harian belum terjadwal; akun
+  Render/Neon/Supabase masing-masing dipegang satu orang.
+- **Risiko utama target:** satu region di Indonesia (DR lintas region =
+  data keluar negeri, ADR 0006); satu NAT gateway; ukuran compute
+  bergantung rasio HIT cache CDN.
+
+## 10. Checklist review diagram (slide 9)
+- [x] Judul berisi jenis diagram + versi/tanggal.
+- [x] Batas provider, region, zona/environment terlihat.
+- [x] Kotak berisi nama + teknologi + angka (replika, ukuran, tier).
+- [x] Semua panah berlabel protokol/aksi, satu arah.
+- [x] Sistem luar bergaris putus-putus; berjalan vs rencana dibedakan.
+- [x] Tanpa host/IP database, password, key, atau connection string.
+- [x] Cocok dengan `infra/` (bucket, antrean, database), `deploy/k8s/`
+  (web, worker, scheduler) dan yang berjalan (Render + Neon + Supabase).

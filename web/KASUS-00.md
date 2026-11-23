@@ -17,7 +17,7 @@ banyak petugas meminjamkan judul yang sama di detik yang sama.
 cp -R kasus-00-perpustakaan/. web/   # di repo contoh berkasnya sudah di web/
 docker compose up -d --build --wait        # migrasi berjalan otomatis
 docker compose exec app php artisan kasus:petugas EMAIL_AKUNMU   # jadikan petugas
-bash tests/fungsional.sh                   # F-01..F-19 + K-01..
+bash tests/fungsional.sh                   # F-01..F-19 + K-01..K-20
 docker compose run --rm --build uji        # PHPUnit, termasuk tests/Feature/Kasus
 ```
 

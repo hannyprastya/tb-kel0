@@ -42,6 +42,22 @@ alasan dan akibatnya di [ADR 0004](docs/adr/0004-pindah-ke-laravel.md).
 Petugas = akun yang sudah mendaftar lalu dijadikan petugas:
 `docker compose exec app php artisan kasus:petugas EMAIL`.
 
+**URL demo:** belum aktif di repo contoh ini (deploy Render baru jalan
+setelah langkah *Deploy* di bawah diisi pemilik repo).
+
+## Arsitektur singkat
+- **Berjalan sekarang (tanpa kartu kredit):** GitHub Actions → GHCR →
+  Render (1 container: Apache + worker + scheduler, health check `/health`)
+  → Neon PostgreSQL 17 (URL pooled, PITR 6 jam) + Supabase Storage (bucket
+  privat). Lab di codespace: compose (app, worker, scheduler, db, Floci),
+  Nginx LB + cache halaman publik, OpenTelemetry → Grafana LGTM, kind + HPA.
+- **Target 10.000 pengguna:** AWS Jakarta (`ap-southeast-3`), CloudFront +
+  WAF → ALB → ECS Fargate web (2–6 task, 2 zona) + worker + scheduler → RDS
+  PostgreSQL Multi-AZ via RDS Proxy; S3 untuk sampul/scan; SQS + DLQ untuk
+  pengingat. ±US$360/bulan (multi-AZ), ±US$322 dengan jadwal skala.
+
+Diagram dan alasan: [docs/arsitektur.md](docs/arsitektur.md).
+
 ## Peta folder
 ```
 tb-kel0/
@@ -85,7 +101,7 @@ tabel *Padanan langkah modul* di README starter `tb-laravel`.
 2. Di terminal codespace, dari akar repo:
    ```bash
    docker compose up -d --build --wait     # build pertama beberapa menit
-   bash tests/fungsional.sh                # F-01..F-19 dan K-xx harus "Lulus"
+   bash tests/fungsional.sh                # F-01..F-19 dan K-01..K-20 harus "Lulus"
    ```
 3. Tab *Ports*: buka port **8080**. Bila CSS tidak termuat, jalankan ulang
    dengan alamat publik codespace:
@@ -99,6 +115,12 @@ tabel *Padanan langkah modul* di README starter `tb-laravel`.
 5. Selesai: *Codespaces › Stop* (kuota dihitung per jam mesin menyala).
 
 Laptop (jalur cadangan): Docker Desktop atau OrbStack, perintah yang sama.
+
+Ukuran yang kami ukur (laptop, 2026-11-23): image produksi 613 MB, image
+OTel 614 MB, image uji 727 MB; RAM compose inti ±175 MiB saat diam (app 30,
+worker 31, scheduler 30, db 46, Floci 36 MiB), mode satu container ±142 MiB
+saat 25 VU. Ditambah Grafana LGTM (P11) ±0,8 GB RAM dan ±2,6 GB disk.
+Semua muat di codespace 2-core.
 
 ### Perintah yang sering dipakai (dari akar repo)
 ```bash
@@ -130,7 +152,8 @@ Setiap PR dan push ke `main` menjalankan satu job `build-test-deploy`
 (nama check di ruleset `main`): `composer audit` + `npm audit` → Semgrep
 `p/default` → `trivy config` + `trivy fs --scanners secret` → image uji:
 Larastan level 5 dan `php artisan test` (PostgreSQL service) → build image
-produksi dari `web/` → compose + `tests/fungsional.sh` (F + K) → Trivy
+produksi dari `web/` → compose + `tests/fungsional.sh` (F-01..F-19 +
+K-01..K-20, termasuk db dimatikan dan dibuat macet) → Trivy
 image (gagal bila CRITICAL yang sudah ada perbaikannya) → **push ke GHCR**
 (hanya `main`, `GITHUB_TOKEN` bawaan) → **deploy ke Render** (hanya bila
 diaktifkan). Semua action dikunci SHA, izin token `contents: read,
@@ -175,6 +198,12 @@ menyalakan Apache, queue worker, dan scheduler bersama.
    `RENDER_DEPLOY_HOOK`, variabel `RENDER_ENABLED` = `true`; *Rules ›
    Rulesets*: `main` wajib PR + check `build-test-deploy`.
 
+Akibat paket gratis yang perlu diketahui: Render tidur setelah ±15 menit
+sepi dan **worker + scheduler ikut tidur** (pengingat 07.00 bisa terlambat,
+runbook bagian 7); worker menanyai tabel `jobs` tiap ±3 s sehingga Neon
+tidak tidur selama Render bangun (kuota CU-jam, biaya.md bagian 1); email
+lupa password hanya ditulis ke log (`MAIL_MAILER=log`).
+
 Nilai di atas yang huruf besar (`NAMA-LAYANAN`, `PROJECT_REF`, `TAG`)
 adalah tempat isi, bukan nilai sungguhan. Kunci Supabase, password Neon,
 dan `APP_KEY` hanya ada di Render *Environment*. Rollback dan penanganan
@@ -188,21 +217,23 @@ Daftar isi, urutan baca, dan pertanyaan yang dijawab tiap dokumen:
 |---------|-----|-----------|
 | [kebutuhan.md](docs/kebutuhan.md) | workload, asumsi, tabel 1.000/10.000 pengguna, target; ukur ulang Laravel | P9, P13 |
 | [keputusan.md](docs/keputusan.md) | regulasi, matriks berbobot, uji kepekaan, region | P9 |
-| [arsitektur.md](docs/arsitektur.md) | C4 konteks + container berjalan/target, sequence pinjam dan pengingat | P9, P12, P14 |
-| [adr/](docs/adr/) | 0001–0003 (P9), 0004 pindah ke Laravel (P12), 0005 antrean pengingat (P14) | P9, P12, P14 |
-| [pengujian.md](docs/pengujian.md) | kriteria lulus, uji fungsional, k6, MTTR, SLO, alert | P10–P12 |
-| [runbook.md](docs/runbook.md) · [postmortem-latihan-1.md](docs/postmortem-latihan-1.md) | deploy, rollback, alert; latihan insiden P11 | P11 |
+| [arsitektur.md](docs/arsitektur.md) | C4 konteks + container, deployment berjalan/target, sequence pinjam dan pengingat | P9, P12, P14, P15 |
+| [adr/](docs/adr/) | 6 ADR: 0001–0003 (P9), 0004 pindah ke Laravel (P12), 0005 antrean pengingat (P14), 0006 strategi DR (P15) | P9, P12, P14, P15 |
+| [pengujian.md](docs/pengujian.md) | kriteria lulus, uji fungsional, k6, MTTR, SLO, alert (PHP dan Laravel) | P10–P15 |
+| [runbook.md](docs/runbook.md) | deploy, rollback, alert 5xx, job gagal/DLQ, pengingat terlewat | P11, P15 |
+| [postmortem-latihan-1.md](docs/postmortem-latihan-1.md) · [postmortem.md](docs/postmortem.md) | latihan insiden P11 dan latihan gangguan P15 | P11, P15 |
 | [keamanan.md](docs/keamanan.md) | temuan scan, skor kepatuhan, prioritas | P12, P13 |
 | [optimasi.md](docs/optimasi.md) · [biaya.md](docs/biaya.md) | sebelum vs sesudah, biaya, titik impas serverless | P13 |
 | [komponen.md](docs/komponen.md) · [jaringan.md](docs/jaringan.md) | komponen, event-driven, VPC/subnet | P14 |
+| [evaluasi.md](docs/evaluasi.md) | SPOF, ketersediaan, RPO/RTO, Well-Architected, biaya, trade-off | P15 |
 
 ## Kontribusi
 | No | NIM | Nama | Kontribusi nyata (PR dan bagian) |
 |----|-----|------|----------------------------------|
 | 1 | 99000001 | Raka Pratama | aplikasi dasar, `ci.yml` (P10, P12), PR `pindah-laravel` + modul perpustakaan, hardening HSTS/CSP (P13 C.4), job + jadwal pengingat, `infra/antrean`, ADR 0003/0004/0005, risiko diterima (`keamanan.md` 6) |
-| 2 | 99000002 | Salsa Nuraini | `keputusan.md`, Neon + `infra/db-neon`, `biaya.md` + rightsizing (P13 C.5), ADR 0002 |
-| 3 | 99000003 | Dimas Ardiansyah | `pengujian.md`, k6, OTel + alert, runbook, optimasi worker + LB, `infra/db-dev`, tanpa mesh (`optimasi.md`) |
-| 4 | 99000004 | Nadia Kusuma | `kebutuhan.md`, `arsitektur.md`, Supabase Storage, cache halaman publik (P13 C.3), `komponen.md`, `jaringan.md`, `infra/storage-file`, ADR 0001, monolit (`komponen.md` 3) |
+| 2 | 99000002 | Salsa Nuraini | `keputusan.md`, Neon + `infra/db-neon`, `biaya.md` + rightsizing (P13 C.5), latihan pulih (P15 B.3), ADR 0002/0006 |
+| 3 | 99000003 | Dimas Ardiansyah | `pengujian.md`, k6, OTel + alert, runbook, optimasi worker + LB, `infra/db-dev`, latihan gangguan + perbaikan `DbGagal` (P15), tanpa mesh (`optimasi.md`), batas waktu 3 s (`postmortem.md`) |
+| 4 | 99000004 | Nadia Kusuma | `kebutuhan.md`, `arsitektur.md`, Supabase Storage, cache halaman publik (P13 C.3), `komponen.md`, `jaringan.md`, `evaluasi.md`, `infra/storage-file`, ADR 0001, monolit (`komponen.md` 3) |
 
 **Catatan riwayat Git:** di repo contoh ini commit disatukan per pertemuan
 (P9 … P15) oleh satu penulis supaya ceritanya mudah dibaca. Di repo
