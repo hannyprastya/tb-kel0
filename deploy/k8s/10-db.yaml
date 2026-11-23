@@ -1,0 +1,62 @@
+# deploy/k8s/10-db.yaml (P8 B.4): PostgreSQL 17 untuk klaster lab. Data di
+# PersistentVolumeClaim (storage class bawaan kind): tetap ada saat Pod
+# di-restart (rollout restart, mesh P13 B.4), hilang saat klaster dihapus.
+# Produksi: Neon. Strategi Recreate: dua Pod postgres tidak boleh memakai
+# folder data yang sama.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: db-data, namespace: nim-99000001 }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: db, namespace: nim-99000001 }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: db } }
+  template:
+    metadata: { labels: { app: db } }
+    spec:
+      securityContext:                   # P13 C.4: proses postgres bukan root
+        runAsNonRoot: true
+        runAsUser: 70                    # user postgres di image alpine
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          env:
+            - { name: POSTGRES_USER, value: app }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }   # subfolder: initdb tidak boleh chmod folder mount
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: tb-rahasia, key: POSTGRES_PASSWORD } }
+          ports: [{ containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: [pg_isready, -U, app] }
+            periodSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true # tulis hanya ke volume
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: run, mountPath: /var/run/postgresql }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: data, persistentVolumeClaim: { claimName: db-data } }
+        - { name: run, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: db, namespace: nim-99000001 }
+spec:
+  selector: { app: db }
+  ports: [{ port: 5432 }]

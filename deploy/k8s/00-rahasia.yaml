@@ -1,0 +1,23 @@
+# deploy/k8s/00-rahasia.yaml: namespace + Secret aplikasi (P8, P13).
+# Ganti nim-99000001 dengan nim-NIM milik pemilik klaster di SEMUA berkas
+# folder ini (P13 A.1).
+#
+# tb-rahasia di bawah hanya berisi password latihan klaster lab (port db
+# tidak dibuka ke luar). APP_KEY TIDAK ada di repo: Pod web, worker,
+# scheduler, dan Job migrasi menunggu Secret tb-kunci, yang dibuat sekali
+# setelah kubectl apply (Pod lalu jalan sendiri):
+#   KEY=$(docker run --rm --entrypoint php tb-web:1.0 artisan key:generate --show)
+#   kubectl -n nim-NIM create secret generic tb-kunci --from-literal=APP_KEY="$KEY"
+# Berkas diberi nomor supaya kubectl apply -f deploy/k8s/ membuat namespace
+# dan Secret lebih dulu.
+apiVersion: v1
+kind: Namespace
+metadata: { name: nim-99000001 }
+---
+apiVersion: v1
+kind: Secret
+metadata: { name: tb-rahasia, namespace: nim-99000001 }
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://app:latihan@db:5432/app"   # password latihan lab
+  POSTGRES_PASSWORD: "latihan"                            # password latihan lab

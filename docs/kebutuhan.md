@@ -100,8 +100,8 @@ Langkah hitungan (1.000 → 10.000 pengguna):
 ## 5. Kebutuhan fungsional
 1. Anggota mencari buku berdasarkan judul atau penulis dan melihat jumlah
    eksemplar yang tersedia.
-2. Petugas mencatat peminjaman (no. buku + no. anggota) dengan jatuh tempo 7
-   hari. Eksemplar yang sedang dipinjam semua tidak bisa dipinjamkan lagi;
+2. Petugas (login, sejak P12) mencatat peminjaman (no. buku + no. anggota)
+   dengan jatuh tempo 7 hari. Eksemplar yang sedang dipinjam semua tidak bisa dipinjamkan lagi;
    stok **tidak boleh minus** walau dua petugas mencatat di detik yang sama.
 3. Petugas mencatat pengembalian; satu peminjaman hanya bisa dikembalikan
    satu kali.
@@ -111,4 +111,4 @@ Langkah hitungan (1.000 → 10.000 pengguna):
    dibuka publik lewat CDN, e-dokumen hanya untuk anggota (rencana).
 6. Pengunjung mengisi buku tamu perpustakaan (aplikasi dasar P5–P7).
 7. Petugas dan monitor bisa membaca ringkasan stok dalam JSON
-   (`/buku/status`).
+   (`/buku/status`; sejak P12 `/api/buku/status`).

@@ -5,4 +5,4 @@ providers:
     folder: tb-kel0
     type: file
     options:
-      path: /otel-lgtm/tb-kel0
+      path: /otel-lgtm/tb

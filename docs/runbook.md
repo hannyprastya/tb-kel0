@@ -1,5 +1,6 @@
 # Runbook · Perpustakaan Kampus (Kelompok 0)
-Pemilik: Dimas Ardiansyah (99000003) · Diperbarui: 2026-11-09 · Tanpa
+Pemilik: Dimas Ardiansyah (99000003) · Diperbarui: 2026-11-10 (pindah ke
+Laravel, ADR 0004) · Tanpa
 password, token, atau connection string: hanya nama secret.
 
 Isi: 1. Deploy · 2. Rollback · 3. Alert error rate 5xx > 5% · 4. Uptime
@@ -8,11 +9,12 @@ monitor merah · 5. Eskalasi
 ## 1. Deploy (normal)
 1. Perubahan lewat branch + PR ke `main`; PR harus hijau di check
    `build-test-deploy` dan disetujui satu anggota (ruleset `lindungi-main`).
-2. Merge = push ke `main` → pipeline: scan → build → uji F-01..F-12 → scan
-   image → push `ghcr.io/PEMILIK/tb-kel0:<7 karakter commit>` → deploy hook
-   Render (bila variabel `RENDER_ENABLED` = `true`).
-3. Render menyalakan versi baru, menunggu `/health` 200, baru mengalihkan
-   trafik. Cek: tab *Events* Render = tag yang sama dengan log Actions.
+2. Merge = push ke `main` → pipeline: audit + Semgrep + Trivy config/secret
+   → Larastan 5 + `php artisan test` → build `web/` → uji F-01..F-19 +
+   K-01..K-15 → scan image → push `ghcr.io/hannyprastya/tb-kel0:<7 karakter
+   commit>` → deploy hook Render (bila variabel `RENDER_ENABLED` = `true`).
+3. Render menyalakan versi baru (`MIGRASI_SAAT_START=1`: `php artisan
+   migrate --force` dulu), menunggu `/health` 200, baru mengalihkan trafik. Cek: tab *Events* Render = tag yang sama dengan log Actions.
 4. Selesai bila `curl -s -o /dev/null -w "%{http_code}\n" $URL/health` = 200
    dan halaman `/buku` tampil.
 
@@ -22,8 +24,10 @@ monitor merah · 5. Eskalasi
   *Manual Deploy › Deploy an existing image* dengan tag lama dari GHCR.
 - **Kode:** buat PR `git revert <commit>` supaya `main` kembali sama dengan
   yang berjalan; jangan force-push.
-- **Database:** perubahan skema hanya `CREATE TABLE IF NOT EXISTS` (tidak
-  merusak data lama). Data salah hapus → pulihkan lewat PITR Neon (riwayat
+- **Database:** skema diubah lewat migrasi Laravel (`web/database/migrations/`),
+  hanya menambah tabel/kolom, jadi image lama tetap jalan di skema baru;
+  `php artisan migrate:rollback` hanya bila migrasi baru itu sendiri rusak.
+  Data salah hapus → pulihkan lewat PITR Neon (riwayat
   6 jam) ke **branch baru**, cek, baru arahkan `DATABASE_URL` ke sana.
 - Pulih bila `/health` 200 dan alert kembali Normal.
 
@@ -32,19 +36,20 @@ Grafana: *Alerting › Alert rules › tb-kel0 › error rate 5xx > 5%*
 (aturan dari `observability/alert-rules.yaml`).
 
 ### 3.1 Gejala dan dasbor
-- Alert Pending lalu Firing; `/health` 503; halaman `/`, `/buku`, `/lambat`
-  500 kosong. `/healthz` tetap 200 (proses hidup).
-- Dari latihan D.2: db mati → Pending +22 s → Firing +52 s; setelah db
-  hidup, Normal ±60 s kemudian (pengujian.md Tabel 5).
+- Alert Pending lalu Firing; `/health` 503; halaman `/`, `/buku` 503 ramah
+  "Maaf …" + `Retry-After: 60`, `/api/*` 503 JSON `{"status":"error","db":"gagal"}`
+  (exception handler starter). `/healthz` tetap 200 (proses hidup).
+- Dari latihan D.2 (buku tamu PHP): db mati → Pending +22 s → Firing
+  +52 s; setelah db hidup, Normal ±60 s kemudian (pengujian.md Tabel 5).
 - Dasbor *tb-kel0 · SLO perpustakaan*: panel error rate naik.
 
 ### 3.2 Cek cepat (≤ 5 menit)
 ```
 curl -s -o /dev/null -w "%{http_code}\n" $URL/health
 docker compose ps -a                 # lab: -a, supaya db yang Exited ikut tampil
-docker compose logs app --tail 20    # cari "Fatal error" / SQLSTATE
+docker compose logs app worker --tail 20   # cari "DB gagal: SQLSTATE[...]"
 ```
-- Produksi: Render › *Logs* (cari `SQLSTATE`); status Neon di console
+- Produksi: Render › *Logs* (cari `DB gagal`); status Neon di console
   Neon; ada deploy dalam 1 jam terakhir? (tab *Actions* dan *Events*).
 
 ### 3.3 Mitigasi (jika ... maka ...)

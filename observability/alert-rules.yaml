@@ -1,6 +1,9 @@
 # alert-rules.yaml (P11 D.1, disimpan sebagai kode): aturan yang dibuat di
 # Grafana lalu diekspor (Alerting › Alert rules › Export). Dimuat otomatis
-# oleh docker-compose.otel.yml. service=~"app-.+" = semua NIM anggota.
+# oleh deploy/compose/otel.yml. service=~"app-.+" = semua NIM anggota.
+# Hanya span SERVER (permintaan HTTP ke Laravel) yang dihitung; job antrean
+# (service worker-NIM) tidak ikut. Halaman 503 ramah saat DB mati tetap
+# dihitung error karena statusnya 5xx.
 apiVersion: 1
 groups:
   - orgId: 1
@@ -37,5 +40,5 @@ groups:
         execErrState: Error
         annotations:
           summary: Error rate 5xx di atas 5% selama 30 detik
-          runbook_url: https://github.com/PEMILIK/tb-kel0/blob/main/docs/runbook.md
+          runbook_url: https://github.com/hannyprastya/tb-kel0/blob/main/docs/runbook.md
         labels: { tim: kel0, sev: "2" }
