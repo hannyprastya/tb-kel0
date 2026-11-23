@@ -2,7 +2,7 @@
 // kapasitas maksimum (req/s). Hanya ke compose sendiri: --vus 50 -d 30s.
 import http from "k6/http";
 import { check } from "k6";
-const RUTE = __ENV.RUTE || "/tamu";
+const RUTE = __ENV.RUTE || "/buku";      // kelompok 0: katalog publik
 export const options = {
   vus: 10, duration: "1m",
   thresholds: {

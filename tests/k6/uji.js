@@ -1,10 +1,10 @@
 // tests/k6/uji.js (P10 slide 25): kriteria lulus Tabel 1 = thresholds.
-// Bawaan ke halaman publik /tamu (sama untuk semua pengunjung). RUTE bisa
-// diganti, mis. -e RUTE=/ (halaman dengan sesi) atau -e RUTE=/api/tamu.
+// Bawaan ke katalog publik /buku (sama untuk semua pengunjung). RUTE bisa
+// diganti, mis. -e RUTE=/ (halaman dengan sesi) atau -e RUTE=/api/buku/status.
 // Hanya ke aplikasi sendiri (compose), bukan ke Render.
 import http from "k6/http";
 import { check, sleep } from "k6";
-const RUTE = __ENV.RUTE || "/tamu";
+const RUTE = __ENV.RUTE || "/buku";      // kelompok 0: katalog publik
 export const options = {
   vus: 10, duration: "1m",
   thresholds: {

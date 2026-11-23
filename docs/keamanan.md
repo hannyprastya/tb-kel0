@@ -1,4 +1,4 @@
-# Evaluasi keamanan · Kelompok 0 · 2026-11-10 (P12)
+# Evaluasi keamanan · Kelompok 0 · 2026-11-10 (P12), diperbarui setelah P13
 Alat (semua lewat Docker, versi dikunci): Trivy 0.76.0, composer 2.11.2,
 npm 11 (node 24), Larastan 3.15.0 (PHPStan 2.3.7), Semgrep 1.182.1,
 actionlint 1.7.12.
@@ -34,7 +34,7 @@ error Larastan level 5, atau CVE CRITICAL yang sudah ada perbaikannya.
 | T-05b | manifest: KSV-0020/0021 (LOW) × 5 workload | D.1 `trivy config` | uid/gid 33 < 10000 | Rendah (K1 × D1 = 1) | **diterima** (bagian 6): Pod sudah `runAsNonRoot`, `readOnlyRootFilesystem`, drop ALL |
 | T-06 | bucket `infra/storage-file`: AWS-0132 (HIGH), AWS-0089 (LOW) | D.1 `trivy config` | bucket lab tanpa KMS dan log akses · AWS-0090 (versioning) sudah diperbaiki di starter | Rendah (K1 × D2 = 2) | **diterima** (bagian 6), `.trivyignore.yaml` |
 | T-07 | satu akun anggota belum 2FA *(ilustrasi)* | butir 16 | belum diaktifkan sejak P7 · akun bisa diambil alih dengan password saja | Sedang (K2 × D3 = 6) | **diperbaiki** 2026-11-11 |
-| T-08 | tanpa `Strict-Transport-Security` dan `Content-Security-Policy` | `curl -sI /`: hanya `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | `web/docker/apache.conf` starter · browser bisa diturunkan ke http pada kunjungan pertama, tidak ada batas `form-action`/`base-uri` | Rendah (K1 × D2 = 2) | rencana P13 C.4 |
+| T-08 | tanpa `Strict-Transport-Security` dan `Content-Security-Policy` | `curl -sI /`: hanya `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | `web/docker/apache.conf` starter · browser bisa diturunkan ke http pada kunjungan pertama, tidak ada batas `base-uri`/`object-src` | Rendah (K1 × D2 = 2) | **diperbaiki P13 C.4** |
 | T-09 | `/api/*` tanpa pembatas laju | 150 permintaan beruntun (10 paralel) ke `/api/buku/status`: 150 × 200 | grup `api` Laravel tanpa `throttle` · API baca bisa dibanjiri dari satu alamat | Rendah (K2 × D1 = 2) | **diterima** (bagian 6), WAF rate-based di target |
 | T-10 | DS-0026 (LOW) `web/Dockerfile*` tanpa `HEALTHCHECK` | D.1 | health check ada di compose/k8s/Render, bukan di image | Rendah (K1 × D1 = 1) | **diterima** (bagian 6) |
 
@@ -89,6 +89,7 @@ T-07), Rendah 5 (T-05b, T-06, T-08, T-09, T-10).
 Buku tamu PHP : lulus 15 dari 20 = 75%   gagal: 1, 4, 5, 16, 20
 Target        : 0,90 × 20 = 18 butir
 Laravel (P12) : lulus 18 dari 20 = 90%   gagal: 16, 20
+Setelah P13   : lulus 19 dari 20 = 95%   gagal: 20 (risiko diterima, bagian 6)
 ```
 
 ## 5. Target vs hasil (Tabel 9)
@@ -131,3 +132,16 @@ Matriks prioritas (Tabel 10): **kerjakan dulu** T-08 (Render publik),
 T-07, worker; **rencanakan** LB + replika, cache, HPA; **kalau sempat**
 rightsizing; **tunda** AWS-0132 (KMS berbayar), CVE tanpa perbaikan
 (menunggu Debian), T-09 (menunggu WAF).
+
+## 8. Pembaruan setelah P13 (dibuktikan ulang dengan alat yang sama)
+| Pemeriksaan | Sebelum | Sesudah |
+|-------------|---------|---------|
+| `curl -sI localhost:8080/buku` (T-08) | 3 header keamanan | + `Strict-Transport-Security: max-age=31536000`, `Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; object-src 'none'` |
+| butir 16, 2FA (T-07) *(ilustrasi)* | 3 dari 4 anggota | 4 dari 4 (2026-11-11) |
+| k6 `uji.js` 100 VU `/buku` setelah hardening | p95 median 41,6 ms | 31,1 ms (kinerja tidak turun, [optimasi.md](optimasi.md) C.4) |
+| `requests` Pod (`trivy config`, `kubectl --dry-run`) | web 128Mi, worker/scheduler 96Mi | 96Mi, 64Mi; HIGH/CRITICAL tetap 0 |
+| Semgrep `p/default`, `trivy fs` secret, Larastan 5 | 0 · 0 · 0 | 0 · 0 · 0 |
+
+CSP sengaja belum membatasi `script-src`: Alpine.js (Breeze) memakai
+`eval` untuk atribut `x-data`; membatasi skrip butuh build Alpine khusus
+CSP. Dicatat sebagai rencana, bukan risiko yang diterima.
